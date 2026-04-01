@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>UrineScan Pro — Step-by-Step</title>
+<title>UrineScan Pro — Sheets Export</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Sans+Thai:wght@300;400;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 
@@ -14,9 +14,9 @@
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: var(--bg); color: var(--text); font-family: 'Noto Sans Thai', sans-serif; padding: 15px; }
-  .container { max-width: 900px; margin: 0 auto; }
+  .container { max-width: 1000px; margin: 0 auto; }
   
-  header { display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 15px; }
+  header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 15px; }
   .logo-text { font-family: 'Space Mono', monospace; font-size: 18px; color: var(--accent); font-weight: bold; }
 
   .main-grid { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 15px; }
@@ -24,92 +24,86 @@
 
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 15px; position: relative; }
   
-  .viewfinder { position: relative; width: 100%; aspect-ratio: 1/1; background: #000; border-radius: 8px; overflow: hidden; border: 2px solid var(--border); transition: 0.3s; }
-  
+  /* Input สำหรับ Google Sheets URL */
+  .config-panel { background: rgba(0, 212, 255, 0.05); border: 1px dashed var(--accent); border-radius: 8px; padding: 10px; margin-bottom: 15px; }
+  .config-input { width: 100%; background: #000; border: 1px solid var(--border); color: var(--accent2); padding: 8px; border-radius: 4px; font-size: 11px; font-family: 'Space Mono'; margin-top: 5px; }
+
+  .viewfinder { position: relative; width: 100%; aspect-ratio: 1/1; background: #000; border-radius: 8px; overflow: hidden; border: 2px solid var(--border); }
   video { width: 100%; height: 100%; object-fit: cover; }
   canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
   
-  .crosshair {
+  .grid-container {
     position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    width: 80px; height: 80px; border: 2px dashed rgba(255,255,255,0.5); border-radius: 50%;
-    pointer-events: none; z-index: 10; display: none;
+    width: 160px; height: 160px; pointer-events: none; z-index: 10; display: none;
   }
-  .crosshair.show { display: block; border-color: var(--warn); }
+  .grid-container.show { display: block; }
+  .grid-box { width: 100%; height: 100%; border: 2px solid var(--accent2); position: relative; }
+  .grid-dot { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 8px; height: 8px; background: var(--warn); border-radius: 50%; }
 
   #instructionOverlay {
     position: absolute; inset: 0; background: rgba(0,0,0,0.85);
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    z-index: 20; text-align: center; padding: 20px; border-radius: 8px;
+    z-index: 20; text-align: center; padding: 20px;
   }
-  .step-badge { background: var(--accent); color: #000; padding: 5px 15px; border-radius: 20px; font-weight: bold; margin-bottom: 15px; font-size: 14px; }
 
-  .btn { width: 100%; padding: 15px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; font-family: 'Space Mono'; font-size: 16px; transition: 0.2s; }
+  .btn { width: 100%; padding: 15px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; font-size: 16px; }
   .btn-primary { background: var(--accent); color: #000; }
   .btn-confirm { background: var(--accent2); color: #000; display: none; }
-  .btn-confirm.show { display: block; animation: pulse 1.5s infinite; }
+  .btn-confirm.show { display: block; }
 
-  @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
-
-  .display-box { height: 70px; border-radius: 8px; margin: 15px 0; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: bold; background: #222; border: 1px solid var(--border); }
+  .display-box { height: 80px; border-radius: 8px; margin: 15px 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #222; border: 1px solid var(--border); }
   
-  table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 12px; }
   th, td { padding: 10px; text-align: left; border-bottom: 1px solid var(--border); }
-  th { color: var(--muted); font-weight: 400; font-size: 11px; text-transform: uppercase; }
-  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; }
 </style>
 </head>
 <body>
 
 <div class="container">
   <header>
-    <div class="logo-text">URINESCAN // PROTOCOL_V2</div>
-    <div id="clock" style="font-family:'Space Mono'; font-size:14px">00:00:00</div>
+    <div class="logo-text">URINESCAN // CLOUD_SYNC</div>
+    <div style="text-align:right; font-family:'Space Mono'; font-size:12px;">
+        <div id="currentDate">01 April 2026</div>
+        <div id="clock">00:00:00</div>
+    </div>
   </header>
+
+  <div class="config-panel">
+      <label style="font-size:10px; font-weight:bold; color:var(--accent)">GOOGLE APPS SCRIPT WEB APP URL:</label>
+      <input type="text" id="sheetUrl" class="config-input" placeholder="วาง Web App URL ที่ได้จาก Apps Script ที่นี่..." onchange="saveConfig()">
+  </div>
 
   <div class="main-grid">
     <div class="card">
       <div class="viewfinder" id="vFrame">
         <video id="video" playsinline></video>
         <canvas id="canvas"></canvas>
-        <div class="crosshair" id="crosshair"></div>
-        
+        <div class="grid-container" id="gridUI"><div class="grid-box"><div class="grid-dot"></div></div></div>
         <div id="instructionOverlay">
-            <div class="step-badge" id="stepText">STEP 1: SCAN QR CODE</div>
-            <p id="subInstruction" style="font-size: 14px; color: var(--text);">นำ QR Code ของทหารมาวางหน้ากล้อง</p>
-            <button class="btn btn-primary" style="margin-top:20px; width: auto;" onclick="initCamera()" id="startBtn">เปิดกล้องเริ่มต้น</button>
+            <button class="btn btn-primary" style="width:auto" onclick="initCamera()" id="startBtn">เปิดกล้อง</button>
         </div>
       </div>
     </div>
 
     <div class="card">
-      <div class="card-title" style="font-size:10px; color:var(--muted); margin-bottom:10px;">SYSTEM STATUS</div>
-      
-      <div class="display-box" id="colorResult">
-        <span id="levelValue" style="font-size:24px; color:#fff">--</span>
-        <span id="levelName" style="font-size:12px; color:rgba(255,255,255,0.6)">รอผลวิเคราะห์สี</span>
+      <div id="colorResult" class="display-box">
+        <span id="levelValue" style="font-size:28px">--</span>
+        <span id="levelName" style="font-size:12px; opacity:0.7">READY</span>
       </div>
-
       <div style="margin-bottom:15px">
-        <label style="font-size:11px; color:var(--muted)">ข้อมูลที่สแกนพบ:</label>
-        <div id="displayUserName" style="font-size:18px; color:var(--accent); font-weight:bold; margin-top:5px; line-height: 1.2;">
-          ยังไม่มีข้อมูล
-        </div>
+        <label style="font-size:10px; color:var(--muted)">SOLDIER:</label>
+        <div id="displayUserName" style="font-size:18px; color:var(--accent); font-weight:bold;">ยังไม่ระบุชื่อ</div>
       </div>
-
-      <button class="btn btn-confirm" id="btnSave" onclick="confirmSave()">บันทึกผลตรวจ (SAVE)</button>
+      <button class="btn btn-confirm" id="btnSave" onclick="confirmSave()">SAVE & SYNC TO SHEET</button>
+      <div id="syncStatus" style="font-size:10px; text-align:center; margin-top:5px; color:var(--muted)"></div>
     </div>
 
     <div class="card" style="grid-column: 1 / -1;">
       <div style="overflow-x:auto">
         <table>
           <thead>
-            <tr>
-              <th>เวลา</th>
-              <th>ผลวิเคราะห์</th>
-              <th>LVL</th>
-              <th style="text-align:center">Bubble</th>
-              <th>ชื่อ-นามสกุล</th>
-            </tr>
+            <tr><th>วันที่</th><th>เวลา</th><th>สถานะ</th><th>LVL</th><th>Bubble</th><th>ชื่อ</th></tr>
           </thead>
           <tbody id="logBody"></tbody>
         </table>
@@ -123,9 +117,8 @@ const video = document.getElementById("video");
 const canvasElement = document.getElementById("canvas");
 const canvas = canvasElement.getContext("2d", {willReadFrequently: true});
 
-// ตั้งค่าเกณฑ์สี 0-4 (ระดับ 0 คือใสเหมือนน้ำเปล่า)
 const LEVELS = [
-  { lv: 0, name: "ปกติ (ใสมาก)", hex: "#FFFFFF", rgb: [240, 240, 240] },
+  { lv: 0, name: "ปกติ (ใสมาก)", hex: "#FFFFFF", rgb: [252, 252, 252] },
   { lv: 1, name: "ปกติ (เหลืองอ่อนมาก)", hex: "#FEEFC6", rgb: [254, 239, 198] },
   { lv: 2, name: "ปกติ (เหลืองอ่อน)", hex: "#FDD771", rgb: [253, 215, 113] },
   { lv: 3, name: "เริ่มขาดน้ำ", hex: "#FFB300", rgb: [255, 179, 0] },
@@ -138,52 +131,20 @@ let currentBuble = "";
 let currentLV = 0;
 let records = JSON.parse(localStorage.getItem('urine_records') || '[]');
 
-async function initCamera() {
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } } 
-        });
-        video.srcObject = stream;
-        video.setAttribute("playsinline", true);
-        await video.play();
-        document.getElementById("startBtn").style.display = "none";
-        updateState("SCANNING_QR");
-        requestAnimationFrame(loop);
-    } catch (err) {
-        alert("เข้าถึงกล้องไม่ได้: " + err);
-    }
+// โหลด URL ที่เคยบันทึกไว้
+document.getElementById('sheetUrl').value = localStorage.getItem('google_sheet_url') || '';
+
+function saveConfig() {
+    localStorage.setItem('google_sheet_url', document.getElementById('sheetUrl').value);
 }
 
-function updateState(newState) {
-    state = newState;
-    const overlay = document.getElementById("instructionOverlay");
-    const stepText = document.getElementById("stepText");
-    const subText = document.getElementById("subInstruction");
-    const crosshair = document.getElementById("crosshair");
-    const btnSave = document.getElementById("btnSave");
-
-    if (state === "SCANNING_QR") {
-        overlay.style.display = "flex";
-        overlay.style.background = "rgba(0,0,0,0.85)";
-        stepText.textContent = "STEP 1: SCAN QR CODE";
-        stepText.style.background = "var(--accent)";
-        subText.textContent = "นำ QR Code ของทหารมาวางหน้ากล้อง";
-        crosshair.classList.remove("show");
-        btnSave.classList.remove("show");
-    } 
-    else if (state === "SCANNING_COLOR") {
-        stepText.textContent = "✅ สแกนสำเร็จ!";
-        stepText.style.background = "var(--accent2)";
-        subText.innerHTML = `<b style='color:#00ff9d; font-size:18px;'>พบ: ${currentName} [กลุ่ม ${currentBuble}]</b><br>กรุณานำแก้วปัสสาวะมาจ่อที่เป้าเล็ง`;
-        
-        setTimeout(() => {
-            if(state === "SCANNING_COLOR") {
-                overlay.style.display = "none";
-                crosshair.classList.add("show");
-                btnSave.classList.add("show");
-            }
-        }, 2500);
-    }
+async function initCamera() {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+    video.srcObject = stream;
+    video.play();
+    document.getElementById("instructionOverlay").style.display = "none";
+    state = "SCANNING_QR";
+    requestAnimationFrame(loop);
 }
 
 function loop() {
@@ -198,23 +159,18 @@ function loop() {
             if (code) {
                 try {
                     const url = new URL(code.data);
-                    const name = url.searchParams.get('name');
-                    const buble = url.searchParams.get('Buble'); 
-
-                    if (name || buble) {
-                        currentName = name || "ไม่ระบุชื่อ";
-                        currentBuble = buble || "-";
-                        document.getElementById("displayUserName").innerHTML = 
-                            `${currentName} <br><small style="color:var(--muted)">Bubble: ${currentBuble}</small>`;
-                        updateState("SCANNING_COLOR");
-                    }
-                } catch(e) { console.log("Invalid URL"); }
+                    currentName = url.searchParams.get('name') || "N/A";
+                    currentBuble = url.searchParams.get('Buble') || "-";
+                    document.getElementById("displayUserName").innerHTML = currentName;
+                    state = "SCANNING_COLOR";
+                    document.getElementById("gridUI").classList.add("show");
+                    document.getElementById("btnSave").classList.add("show");
+                } catch(e) {}
             }
-        } 
-        else if (state === "SCANNING_COLOR") {
-            const centerX = canvasElement.width / 2;
-            const centerY = canvasElement.height / 2;
-            const p = canvas.getImageData(centerX, centerY, 1, 1).data;
+        } else if (state === "SCANNING_COLOR") {
+            const cX = canvasElement.width / 2;
+            const cY = canvasElement.height / 2;
+            const p = canvas.getImageData(cX, cY, 1, 1).data;
             analyzeColor([p[0], p[1], p[2]]);
         }
     }
@@ -222,58 +178,67 @@ function loop() {
 }
 
 function analyzeColor(rgb) {
-    let minDistance = Infinity;
+    let minD = Infinity;
     let match = LEVELS[0];
-
     LEVELS.forEach(l => {
         const d = Math.sqrt(Math.pow(rgb[0]-l.rgb[0],2) + Math.pow(rgb[1]-l.rgb[1],2) + Math.pow(rgb[2]-l.rgb[2],2));
-        if (d < minDistance) { minDistance = d; match = l; }
+        if (d < minD) { minD = d; match = l; }
     });
-
     currentLV = match.lv;
-    const box = document.getElementById("colorResult");
-    box.style.background = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+    document.getElementById("colorResult").style.background = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
     document.getElementById("levelValue").textContent = "LV." + match.lv;
     document.getElementById("levelName").textContent = match.name;
-    // ปรับสีตัวอักษรให้ตัดกับพื้นหลัง (ถ้าสีฉี่สว่างให้ฟอนต์ดำ ถ้าเข้มให้ฟอนต์ขาว)
-    document.getElementById("levelValue").style.color = (rgb[0]+rgb[1]+rgb[2] > 400) ? "#000" : "#fff";
 }
 
-function confirmSave() {
+async function confirmSave() {
+    const scriptUrl = document.getElementById('sheetUrl').value;
+    const now = new Date();
     const record = {
-        time: new Date().toLocaleTimeString('th-TH', {hour: '2-digit', minute:'2-digit'}),
+        date: now.toLocaleDateString('th-TH'),
+        time: now.toLocaleTimeString('th-TH'),
         name: currentName,
         buble: currentBuble,
         level: currentLV,
-        color: LEVELS.find(l => l.lv === currentLV).hex,
-        status: LEVELS.find(l => l.lv === currentLV).name
+        status: LEVELS[currentLV].name
     };
+
+    // บันทึกลงตารางในเครื่องก่อน
     records.unshift(record);
     localStorage.setItem('urine_records', JSON.stringify(records));
     renderHistory();
-    
-    currentName = "";
-    currentBuble = "";
-    document.getElementById("displayUserName").textContent = "ยังไม่มีข้อมูล";
-    updateState("SCANNING_QR");
+
+    // ส่งไป Google Sheets
+    if (scriptUrl) {
+        document.getElementById('syncStatus').textContent = "⏳ Syncing...";
+        try {
+            await fetch(scriptUrl, {
+                method: "POST",
+                mode: "no-cors",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(record)
+            });
+            document.getElementById('syncStatus').textContent = "✅ Synced to Sheet";
+        } catch (err) {
+            document.getElementById('syncStatus').textContent = "❌ Sync Failed";
+        }
+    }
+
+    state = "SCANNING_QR";
+    document.getElementById("gridUI").classList.remove("show");
+    document.getElementById("btnSave").classList.remove("show");
 }
 
 function renderHistory() {
     document.getElementById('logBody').innerHTML = records.map(r => `
-        <tr>
-            <td>${r.time}</td>
-            <td><span class="dot" style="background:${r.color}"></span> ${r.status}</td>
-            <td><strong>${r.level}</strong></td>
-            <td style="text-align:center; font-weight:bold; color:var(--accent)">${r.buble}</td>
-            <td>${r.name}</td>
-        </tr>
+        <tr><td>${r.date}</td><td>${r.time}</td><td>${r.status}</td><td>${r.level}</td><td>${r.buble}</td><td>${r.name}</td></tr>
     `).join('');
 }
 
 window.onload = renderHistory;
-setInterval(() => { 
-    if(document.getElementById('clock'))
-        document.getElementById('clock').textContent = new Date().toLocaleTimeString('th-TH'); 
+setInterval(() => {
+    const now = new Date();
+    document.getElementById('clock').textContent = now.toLocaleTimeString('th-TH');
+    document.getElementById('currentDate').textContent = now.toLocaleDateString('th-TH', {day:'numeric', month:'short', year:'numeric'});
 }, 1000);
 </script>
 </body>
