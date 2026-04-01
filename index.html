@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>UrineScan Pro — Sheets Export</title>
+<title>UrineScan Pro — Temp & Sync</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Sans+Thai:wght@300;400;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 
@@ -24,29 +24,26 @@
 
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 15px; position: relative; }
   
-  /* Input สำหรับ Google Sheets URL */
   .config-panel { background: rgba(0, 212, 255, 0.05); border: 1px dashed var(--accent); border-radius: 8px; padding: 10px; margin-bottom: 15px; }
   .config-input { width: 100%; background: #000; border: 1px solid var(--border); color: var(--accent2); padding: 8px; border-radius: 4px; font-size: 11px; font-family: 'Space Mono'; margin-top: 5px; }
+
+  /* ช่องกรอกอุณหภูมิ */
+  .temp-input-group { background: rgba(255, 255, 255, 0.03); padding: 12px; border-radius: 8px; margin-bottom: 15px; border: 1px solid var(--border); }
+  .input-field { width: 100%; background: #000; border: 1px solid var(--accent); color: #fff; padding: 12px; border-radius: 6px; font-size: 20px; font-weight: bold; text-align: center; font-family: 'Space Mono'; margin-top: 8px; }
+  .input-field:focus { outline: none; border-color: var(--accent2); box-shadow: 0 0 10px rgba(0, 255, 157, 0.2); }
 
   .viewfinder { position: relative; width: 100%; aspect-ratio: 1/1; background: #000; border-radius: 8px; overflow: hidden; border: 2px solid var(--border); }
   video { width: 100%; height: 100%; object-fit: cover; }
   canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
   
-  .grid-container {
-    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    width: 160px; height: 160px; pointer-events: none; z-index: 10; display: none;
-  }
+  .grid-container { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 160px; height: 160px; pointer-events: none; z-index: 10; display: none; }
   .grid-container.show { display: block; }
   .grid-box { width: 100%; height: 100%; border: 2px solid var(--accent2); position: relative; }
   .grid-dot { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 8px; height: 8px; background: var(--warn); border-radius: 50%; }
 
-  #instructionOverlay {
-    position: absolute; inset: 0; background: rgba(0,0,0,0.85);
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    z-index: 20; text-align: center; padding: 20px;
-  }
+  #instructionOverlay { position: absolute; inset: 0; background: rgba(0,0,0,0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 20; padding: 20px; }
 
-  .btn { width: 100%; padding: 15px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; font-size: 16px; }
+  .btn { width: 100%; padding: 15px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; font-size: 16px; transition: 0.2s; }
   .btn-primary { background: var(--accent); color: #000; }
   .btn-confirm { background: var(--accent2); color: #000; display: none; }
   .btn-confirm.show { display: block; }
@@ -62,7 +59,7 @@
 
 <div class="container">
   <header>
-    <div class="logo-text">URINESCAN // CLOUD_SYNC</div>
+    <div class="logo-text">หน่วยฝึกทหารใหม่ ปตอ.2 พัน.2</div>
     <div style="text-align:right; font-family:'Space Mono'; font-size:12px;">
         <div id="currentDate">01 April 2026</div>
         <div id="clock">00:00:00</div>
@@ -71,7 +68,7 @@
 
   <div class="config-panel">
       <label style="font-size:10px; font-weight:bold; color:var(--accent)">GOOGLE APPS SCRIPT WEB APP URL:</label>
-      <input type="text" id="sheetUrl" class="config-input" placeholder="วาง Web App URL ที่ได้จาก Apps Script ที่นี่..." onchange="saveConfig()">
+      <input type="text" id="sheetUrl" class="config-input" placeholder="วาง Web App URL จาก Apps Script..." onchange="saveConfig()">
   </div>
 
   <div class="main-grid">
@@ -81,7 +78,7 @@
         <canvas id="canvas"></canvas>
         <div class="grid-container" id="gridUI"><div class="grid-box"><div class="grid-dot"></div></div></div>
         <div id="instructionOverlay">
-            <button class="btn btn-primary" style="width:auto" onclick="initCamera()" id="startBtn">เปิดกล้อง</button>
+            <button class="btn btn-primary" style="width:auto" onclick="initCamera()" id="startBtn">เริ่มต้นสแกน</button>
         </div>
       </div>
     </div>
@@ -91,19 +88,26 @@
         <span id="levelValue" style="font-size:28px">--</span>
         <span id="levelName" style="font-size:12px; opacity:0.7">READY</span>
       </div>
-      <div style="margin-bottom:15px">
+
+      <div class="temp-input-group">
+        <label style="font-size:11px; font-weight:bold; color:var(--accent)">อุณหภูมิร่างกาย (°C):</label>
+        <input type="number" id="bodyTemp" class="input-field" placeholder="36.5" step="0.1" min="30" max="45">
+      </div>
+
+      <div style="margin-bottom:15px; padding-left: 10px; border-left: 3px solid var(--accent)">
         <label style="font-size:10px; color:var(--muted)">SOLDIER:</label>
         <div id="displayUserName" style="font-size:18px; color:var(--accent); font-weight:bold;">ยังไม่ระบุชื่อ</div>
       </div>
-      <button class="btn btn-confirm" id="btnSave" onclick="confirmSave()">SAVE & SYNC TO SHEET</button>
-      <div id="syncStatus" style="font-size:10px; text-align:center; margin-top:5px; color:var(--muted)"></div>
+
+      <button class="btn btn-confirm" id="btnSave" onclick="confirmSave()">SAVE & CLOUD SYNC</button>
+      <div id="syncStatus" style="font-size:10px; text-align:center; margin-top:10px; color:var(--muted)"></div>
     </div>
 
     <div class="card" style="grid-column: 1 / -1;">
       <div style="overflow-x:auto">
         <table>
           <thead>
-            <tr><th>วันที่</th><th>เวลา</th><th>สถานะ</th><th>LVL</th><th>Bubble</th><th>ชื่อ</th></tr>
+            <tr><th>วันที่</th><th>เวลา</th><th>ชื่อ</th><th>Bubble</th><th>Temp</th><th>ผล</th><th>LVL</th></tr>
           </thead>
           <tbody id="logBody"></tbody>
         </table>
@@ -131,12 +135,9 @@ let currentBuble = "";
 let currentLV = 0;
 let records = JSON.parse(localStorage.getItem('urine_records') || '[]');
 
-// โหลด URL ที่เคยบันทึกไว้
 document.getElementById('sheetUrl').value = localStorage.getItem('google_sheet_url') || '';
 
-function saveConfig() {
-    localStorage.setItem('google_sheet_url', document.getElementById('sheetUrl').value);
-}
+function saveConfig() { localStorage.setItem('google_sheet_url', document.getElementById('sheetUrl').value); }
 
 async function initCamera() {
     const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
@@ -161,7 +162,7 @@ function loop() {
                     const url = new URL(code.data);
                     currentName = url.searchParams.get('name') || "N/A";
                     currentBuble = url.searchParams.get('Buble') || "-";
-                    document.getElementById("displayUserName").innerHTML = currentName;
+                    document.getElementById("displayUserName").innerHTML = currentName + " (Bubble: " + currentBuble + ")";
                     state = "SCANNING_COLOR";
                     document.getElementById("gridUI").classList.add("show");
                     document.getElementById("btnSave").classList.add("show");
@@ -188,9 +189,13 @@ function analyzeColor(rgb) {
     document.getElementById("colorResult").style.background = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
     document.getElementById("levelValue").textContent = "LV." + match.lv;
     document.getElementById("levelName").textContent = match.name;
+    document.getElementById("levelValue").style.color = (rgb[0]+rgb[1]+rgb[2] > 400) ? "#000" : "#fff";
 }
 
 async function confirmSave() {
+    const tempValue = document.getElementById('bodyTemp').value;
+    if (!tempValue) { alert("กรุณากรอกอุณหภูมิก่อนบันทึก"); return; }
+
     const scriptUrl = document.getElementById('sheetUrl').value;
     const now = new Date();
     const record = {
@@ -198,18 +203,17 @@ async function confirmSave() {
         time: now.toLocaleTimeString('th-TH'),
         name: currentName,
         buble: currentBuble,
+        temp: tempValue + " °C",
         level: currentLV,
         status: LEVELS[currentLV].name
     };
 
-    // บันทึกลงตารางในเครื่องก่อน
     records.unshift(record);
     localStorage.setItem('urine_records', JSON.stringify(records));
     renderHistory();
 
-    // ส่งไป Google Sheets
     if (scriptUrl) {
-        document.getElementById('syncStatus').textContent = "⏳ Syncing...";
+        document.getElementById('syncStatus').textContent = "⏳ กำลังส่งข้อมูล...";
         try {
             await fetch(scriptUrl, {
                 method: "POST",
@@ -217,20 +221,22 @@ async function confirmSave() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(record)
             });
-            document.getElementById('syncStatus').textContent = "✅ Synced to Sheet";
+            document.getElementById('syncStatus').textContent = "✅ บันทึกลง Sheet สำเร็จ";
+            document.getElementById('bodyTemp').value = ''; // ล้างค่าหลังบันทึก
         } catch (err) {
-            document.getElementById('syncStatus').textContent = "❌ Sync Failed";
+            document.getElementById('syncStatus').textContent = "❌ ส่งข้อมูลไม่สำเร็จ";
         }
     }
 
     state = "SCANNING_QR";
     document.getElementById("gridUI").classList.remove("show");
     document.getElementById("btnSave").classList.remove("show");
+    document.getElementById("displayUserName").textContent = "ยังไม่ระบุชื่อ";
 }
 
 function renderHistory() {
     document.getElementById('logBody').innerHTML = records.map(r => `
-        <tr><td>${r.date}</td><td>${r.time}</td><td>${r.status}</td><td>${r.level}</td><td>${r.buble}</td><td>${r.name}</td></tr>
+        <tr><td>${r.date}</td><td>${r.time}</td><td>${r.name}</td><td>${r.buble}</td><td>${r.temp}</td><td>${r.status}</td><td>${r.level}</td></tr>
     `).join('');
 }
 
