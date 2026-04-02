@@ -26,16 +26,24 @@
     background: #000; border-radius: 12px; overflow: hidden; border: 2px solid var(--border); margin: 0 auto;
   }
 
+/* ปรับให้ Canvas แสดงผลเฉพาะตอนที่จำเป็นต้องเห็นจุดเล็งหรือวัดสีเท่านั้น */
 canvas { 
     position: absolute; 
     top: 0; left: 0; 
     width: 100%; height: 100%; 
     object-fit: cover; 
-    pointer-events: none; /* เพิ่มบรรทัดนี้ */
+    pointer-events: none;
     z-index: 5;
+    /* ถ้าอยู่ในโหมดสแกน QR ให้ซ่อนไปเลยเพื่อความลื่น */
+    opacity: 1; 
 }
+
 video {
-    z-index: 1; /* ให้วิดีโออยู่ล่างสุด */
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    z-index: 1;
 }
 
   .photo-preview-wrap { 
@@ -129,7 +137,7 @@ const CONFIG_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyZYdeSJA5X5DD
 
 const video = document.getElementById("video");
 const canvasElement = document.getElementById("canvas");
-const canvas = canvasElement.getContext("2d", {willReadFrequently: true});
+const canvas = canvasElement.getContext("2d", { alpha: false, willReadFrequently: true });
 
 const LEVELS = [
   { lv: 0, name: "ใส", color: "#ffffff" },
@@ -142,89 +150,106 @@ const LEVELS = [
 let state = "IDLE"; 
 let currentName = "", currentLV = 0;
 let historyData = JSON.parse(localStorage.getItem('urine_history_v2') || '[]');
+let scanInterval;
 
 async function initCamera() {
     try {
         const constraints = {
-            video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 1280 } }
+            video: { 
+                facingMode: "environment", 
+                width: { ideal: 720 }, 
+                height: { ideal: 720 }
+            }
         };
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
         video.srcObject = stream;
         video.setAttribute("playsinline", true);
-        video.play();
+        await video.play();
+        
         document.getElementById("instructionOverlay").style.display = "none";
         state = "SCAN_QR";
+        
+        // ซ่อน Canvas ระหว่างสแกน QR เพื่อลดภาระการเรนเดอร์หน้าจอ
+        canvasElement.style.display = "none";
+        
+        // สแกน QR ทุก 400ms (พอดีสำหรับการประมวลผล iPhone 8)
+        scanInterval = setInterval(scanQRCode, 400); 
+        
         renderHistory();
         requestAnimationFrame(loop);
-    } catch(e) { alert("Error: " + e.message); }
+    } catch(e) { alert("Camera Error: " + e.message); }
 }
 
-let lastScanTime = 0; // เพิ่มตัวแปรเก็บเวลาล่าสุดที่สแกน
+function scanQRCode() {
+    if (state !== "SCAN_QR" || video.readyState !== video.HAVE_ENOUGH_DATA) return;
 
-function loop(time) {
+    // ใช้ Canvas ขนาดเล็ก (300x300) สำหรับสแกน QR เท่านั้น เพื่อประหยัด CPU
+    const scanSize = 300;
+    canvasElement.width = scanSize;
+    canvasElement.height = scanSize;
+    
+    // วาดเฉพาะส่วนกลางของวิดีโอลงใน Canvas เล็ก
+    canvas.drawImage(video, 0, 0, scanSize, scanSize);
+    
+    const imageData = canvas.getImageData(0, 0, scanSize, scanSize);
+    const code = jsQR(imageData.data, imageData.width, imageData.height);
+    
+    if (code) {
+        try {
+            const url = new URL(code.data);
+            currentName = url.searchParams.get('name') || "Unknown";
+            document.getElementById("displayUserName").textContent = currentName;
+            
+            state = "SNAP_BOTTLE";
+            clearInterval(scanInterval); 
+            
+            // สลับกลับมาใช้ขนาดปกติสำหรับวัดสี
+            canvasElement.style.display = "block";
+            
+            document.getElementById("btnSnap").style.display = "flex";
+            document.getElementById("btnReset").style.display = "flex";
+            document.getElementById("bottleGuide").classList.add("show");
+            document.getElementById("stepTag").textContent = "STEP 2: SNAP BOTTLE";
+            document.getElementById("stepTag").classList.add("active");
+        } catch(e) { console.log("QR Data Error"); }
+    }
+}
+
+function loop() {
     if (state === "COMPLETED") return;
 
-    if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        // วาดภาพลง Canvas เฉพาะเมื่อจำเป็น (เช่น ตอน SNAP หรือตอนต้องการประมวลผลสี)
-        // สำหรับการดูผ่านจอ ให้ใช้ Video Element โดยตรงจะลื่นกว่า
-
-        if (state === "SCAN_QR") {
-            // สแกนทุกๆ 250ms (4 ครั้งต่อวินาที) เพื่อความลื่นไหลของหน้าจอ
-            if (time - lastScanTime > 250) { 
-                canvasElement.height = video.videoHeight;
-                canvasElement.width = video.videoWidth;
-                canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
-                
-                const imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
-                const code = jsQR(imageData.data, imageData.width, imageData.height);
-                
-                if (code) {
-                    try {
-                        const url = new URL(code.data);
-                        currentName = url.searchParams.get('name') || "Unknown";
-                        document.getElementById("displayUserName").textContent = currentName;
-                        state = "SNAP_BOTTLE";
-                        document.getElementById("btnSnap").style.display = "flex";
-                        document.getElementById("btnReset").style.display = "flex";
-                        document.getElementById("bottleGuide").classList.add("add", "show");
-                        document.getElementById("stepTag").textContent = "STEP 2: SNAP BOTTLE";
-                    } catch(e) { console.log("QR Data Error"); }
-                }
-                lastScanTime = time;
-            }
-        } else if (state === "SNAP_BOTTLE") {
-            // การวัดสีทำในทุกเฟรมได้ เพราะใช้ทรัพยากรน้อยกว่าการสแกน QR
-            canvasElement.height = video.videoHeight;
+    if (state === "SNAP_BOTTLE" && video.readyState === video.HAVE_ENOUGH_DATA) {
+        // วาดภาพขนาดจริงเพื่อวัดสี
+        if (canvasElement.width !== video.videoWidth) {
             canvasElement.width = video.videoWidth;
-            canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
-
-            const sampleSize = 15;
-            const cX = canvasElement.width / 2 - (sampleSize / 2);
-            const cY = canvasElement.height / 2 - (sampleSize / 2);
-            const imgData = canvas.getImageData(cX, cY, sampleSize, sampleSize).data;
-            
-            let r = 0, g = 0, b = 0;
-            for (let i = 0; i < imgData.length; i += 4) {
-                r += imgData[i]; g += imgData[i+1]; b += imgData[i+2];
-            }
-            const pixels = imgData.length / 4;
-            updateColorIndicator([r/pixels, g/pixels, b/pixels]);
+            canvasElement.height = video.videoHeight;
         }
+        canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
+
+        const sampleSize = 15;
+        const cX = canvasElement.width / 2 - (sampleSize / 2);
+        const cY = canvasElement.height / 2 - (sampleSize / 2);
+        const imgData = canvas.getImageData(cX, cY, sampleSize, sampleSize).data;
+        
+        let r = 0, g = 0, b = 0;
+        for (let i = 0; i < imgData.length; i += 4) {
+            r += imgData[i]; g += imgData[i+1]; b += imgData[i+2];
+        }
+        const pixels = imgData.length / 4;
+        updateColorIndicator([r/pixels, g/pixels, b/pixels]);
     }
+    
     requestAnimationFrame(loop);
 }
 
 function updateColorIndicator(rgb) {
     const [r, g, b] = rgb;
-    
-    // เงื่อนไขสำหรับระดับ 0 (ใส): สว่างมาก และสี R, G, B ต้องใกล้กันมาก (ไม่ติดเหลือง)
     const brightness = (r + g + b) / 3;
     const colorDiff = Math.max(r, g, b) - Math.min(r, g, b);
 
     if (brightness > 185 && colorDiff < 25) {
         currentLV = 0;
     } else {
-        // ใช้ค่า Green (g) ในการแยกสีเหลือง เพราะสีเหลืองมีค่า g สูงกว่าสีส้ม/น้ำตาล
         currentLV = (g < 110) ? 4 : (g < 170) ? 3 : (g < 205) ? 2 : 1;
     }
 
@@ -235,7 +260,8 @@ function updateColorIndicator(rgb) {
 }
 
 function takePhoto() {
-    document.getElementById("photoSnapshot").src = canvasElement.toDataURL('image/jpeg');
+    // ใช้ขนาดจริงของ Canvas มาทำเป็นรูปภาพ
+    document.getElementById("photoSnapshot").src = canvasElement.toDataURL('image/jpeg', 0.8);
     document.getElementById("vFrame").style.display = "none";
     document.getElementById("photoWrap").classList.add("show");
     document.getElementById("btnSnap").style.display = "none";
