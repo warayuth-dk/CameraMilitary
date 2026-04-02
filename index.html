@@ -412,9 +412,15 @@
 </div>
 
 <script>
-// ================= CONFIG & STATE =================
+// ================= CONFIG =================
 const CONFIG_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyfujc5A_qjCti6nH_AILuOJbPW7oIpAhC3zNeOXVpl01Jn0RL5X2T5a8tyXunmTtoj/exec'; 
 
+// ================= DOM =================
+const video = document.getElementById("video");
+const canvasElement = document.getElementById("canvas");
+const canvas = canvasElement.getContext("2d", { alpha: false, willReadFrequently: true });
+
+// ================= DATA =================
 const LEVELS = [
   { lv: 0, name: "ใส", color: "#ffffff", textColor: "#000" },
   { lv: 1, name: "เหลืองจาง", color: "#FEEFC6", textColor: "#000" },
@@ -423,88 +429,125 @@ const LEVELS = [
   { lv: 4, name: "น้ำตาล/อันตราย", color: "#795548", textColor: "#fff" }
 ];
 
+// ================= STATE =================
 let state = "IDLE";
-let currentName = "", currentBuble = "", currentNumber = "";
+let currentName = "";
+let currentBuble = "";
 let currentLV = 0;
 let historyData = JSON.parse(localStorage.getItem('urine_history_v2') || '[]');
 let cameraStream = null;
 let scanInterval = null;
 
-// สำหรับระบบ Smoothing & Calibration
-let colorBuffer = []; 
-const BUFFER_SIZE = 15; // จำนวนเฟรมที่ใช้หาค่าเฉลี่ย (ประมาณ 0.5-1 วินาที)
-
-const video = document.getElementById("video");
-const canvasElement = document.getElementById("canvas");
-const ctx = canvasElement.getContext("2d", { alpha: false, willReadFrequently: true });
-
 // ================= INIT =================
 document.addEventListener('DOMContentLoaded', () => {
   renderHistory();
   startClock();
-  autoStartCamera();
+  autoStartCamera(); // 🔥 เปิดกล้องอัตโนมัติ
 });
 
+// ================= AUTO CAMERA =================
 async function autoStartCamera() {
   try {
     const devices = await navigator.mediaDevices.enumerateDevices();
-    if (devices.some(d => d.kind === 'videoinput')) await initCamera();
-  } catch (e) { console.log("Auto camera blocked"); }
+    const hasCamera = devices.some(d => d.kind === 'videoinput');
+    if (!hasCamera) return;
+
+    await initCamera(); // 👉 เปิดเลย
+  } catch (e) {
+    console.log("Auto camera blocked:", e);
+  }
 }
 
+// ================= CAMERA =================
 async function initCamera() {
   try {
     const constraints = {
       video: {
         facingMode: "environment",
-        width: { ideal: 1280 }, // iPhone 13+ ชอบความละเอียดสูง
+        width: { ideal: 720 },
         height: { ideal: 720 }
       }
     };
+
     cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
     video.srcObject = cameraStream;
     await video.play();
+
     document.getElementById("instructionOverlay").style.display = "none";
+
     state = "SCAN_QR";
     updateStepTag("STEP 1: SCAN QR CODE", true);
+
+    canvasElement.style.display = "none";
+
     scanInterval = setInterval(scanQRCode, 400);
     requestAnimationFrame(loop);
-  } catch(e) { showError("เปิดกล้องไม่ได้: " + e.message); }
+
+  } catch(e) { 
+    showError("เปิดกล้องไม่ได้: " + e.message);
+  }
 }
 
-// ================= QR SCANNER =================
+// ================= QR =================
 function scanQRCode() {
   if (state !== "SCAN_QR" || video.readyState !== video.HAVE_ENOUGH_DATA) return;
-  const size = 400;
-  canvasElement.width = size; canvasElement.height = size;
-  ctx.drawImage(video, (video.videoWidth-size)/2, (video.videoHeight-size)/2, size, size, 0, 0, size, size);
-  const code = jsQR(ctx.getImageData(0, 0, size, size).data, size, size);
+
+  const scanSize = 300;
+  canvasElement.width = scanSize;
+  canvasElement.height = scanSize;
+
+  const sx = (video.videoWidth - scanSize) / 2;
+  const sy = (video.videoHeight - scanSize) / 2;
+
+  canvas.drawImage(video, sx, sy, scanSize, scanSize, 0, 0, scanSize, scanSize);
+
+  const imageData = canvas.getImageData(0, 0, scanSize, scanSize);
+  const code = jsQR(imageData.data, imageData.width, imageData.height);
+
   if (code) handleQRCodeDetected(code.data);
 }
 
 function handleQRCodeDetected(qrData) {
   try {
     const url = new URL(qrData);
+    console.log("QR RAW:", qrData);
+
     currentNumber = url.searchParams.get('Number') || "-";
     currentName = url.searchParams.get('name') || "Unknown";
     currentBuble = url.searchParams.get('Buble') || "-";
+
+    console.log("Number =", url.searchParams.get('Number'));
+    console.log("name =", url.searchParams.get('name'));
+    console.log("Buble =", url.searchParams.get('Buble'));
+
     document.getElementById("displayUserName").innerHTML =`เลขที่: ${currentNumber}<br>ชื่อ: ${currentName}<br>Bubble: ${currentBuble}`;
+
     clearInterval(scanInterval);
+
     state = "SNAP_BOTTLE";
+
+    canvasElement.style.display = "block";
+
+    updateStepTag("STEP 2: SNAP BOTTLE", true);
+
     document.getElementById("btnSnap").style.display = "flex";
     document.getElementById("btnReset").style.display = "flex";
     document.getElementById("bottleGuide").classList.add("show");
-    updateStepTag("STEP 2: SNAP BOTTLE", true);
-  } catch { showError("QR ไม่ถูกต้อง"); }
+
+  } catch {
+    showError("QR ไม่ถูกต้อง");
+  }
 }
 
-// ================= COLOR ANALYZER (IPHONE 13+ OPTIMIZED) =================
+// ================= LOOP =================
 function loop() {
   if (state === "COMPLETED") return;
+
   if (state === "SNAP_BOTTLE" && video.readyState === video.HAVE_ENOUGH_DATA) {
     canvasElement.width = video.videoWidth;
     canvasElement.height = video.videoHeight;
-    ctx.drawImage(video, 0, 0);
+
+    canvas.drawImage(video, 0, 0);
 
     const centerX = canvasElement.width / 2;
     const centerY = canvasElement.height / 2;
@@ -604,23 +647,32 @@ function renderColorUI(r, g, b, h, s, brightness, refBrightness) {
   box.style.color = brightness > 150 ? "#000" : "#fff";
 }
 
-// ================= APP ACTIONS =================
+// ================= SNAP =================
 function takePhoto() {
-  document.getElementById("photoSnapshot").src = canvasElement.toDataURL('image/jpeg', 0.8);
+  document.getElementById("photoSnapshot").src =
+    canvasElement.toDataURL('image/jpeg',0.8);
+
   document.getElementById("vFrame").style.display="none";
   document.getElementById("photoWrap").classList.add("show");
-  if(cameraStream) cameraStream.getTracks().forEach(t=>t.stop());
+
+  if(cameraStream){
+    cameraStream.getTracks().forEach(t=>t.stop());
+  }
+
   state="COMPLETED";
   updateStepTag("STEP 3: INPUT TEMP", true);
+
   document.getElementById("tempArea").classList.add("active");
   document.getElementById("btnSave").style.display="flex";
 }
 
+// ================= SAVE =================
 async function confirmSave() {
   const temp = document.getElementById('bodyTemp').value;
   if(!temp) return showError("กรอกอุณหภูมิ");
+  const now = new Date();
   const record = {
-    date: new Date().toLocaleDateString('th-TH'),
+    date: now.toLocaleDateString('th-TH'),
     Number: currentNumber,
     name: currentName,
     buble: currentBuble,
@@ -629,40 +681,80 @@ async function confirmSave() {
     status: LEVELS[currentLV].name,
     time: new Date().toLocaleTimeString('th-TH')
   };
+
   historyData.unshift(record);
   localStorage.setItem('urine_history_v2', JSON.stringify(historyData.slice(0,20)));
   renderHistory();
-  document.getElementById("syncStatus").textContent="⏳ กำลังบันทึก...";
+
   try {
-    await fetch(CONFIG_SHEET_URL,{method:"POST", mode:"no-cors", body:JSON.stringify(record)});
+    await fetch(CONFIG_SHEET_URL,{
+      method:"POST",
+      mode:"no-cors",
+      body:JSON.stringify(record)
+    });
+
     document.getElementById("syncStatus").textContent="✅ สำเร็จ";
-    setTimeout(resetApp, 1200);
-  } catch { showError("ส่งข้อมูลไม่สำเร็จ"); }
+
+    setTimeout(resetApp,1200); // 🔥 ไม่ reload
+
+  } catch {
+    showError("ส่งข้อมูลไม่สำเร็จ");
+  }
 }
 
+// ================= RESET (สำคัญสุด) =================
 function resetApp() {
-  location.reload(); // เคลียร์ RAM กล้อง iPhone ได้ดีที่สุด
+  state="IDLE";
+
+  document.getElementById("photoWrap").classList.remove("show");
+  document.getElementById("vFrame").style.display="block";
+  document.getElementById("btnSnap").style.display = "none";
+  document.getElementById("btnSave").style.display="none";
+  document.getElementById("btnReset").style.display="none";
+  document.getElementById("tempArea").classList.remove("active");
+
+  document.getElementById("bodyTemp").value="";
+  document.getElementById("displayUserName").textContent="รอสแกน QR CODE...";
+  document.getElementById("colorResult").innerHTML="สี: --";
+
+  document.getElementById("bottleGuide").classList.remove("show");
+
+  updateStepTag("STEP 1: SCAN QR CODE", true);
+
+  initCamera(); // 🔥 กลับไปสแกนต่อทันที
 }
 
+// ================= UI =================
 function renderHistory(){
   const body=document.getElementById("historyBody");
-  body.innerHTML=historyData.map(r=>`<tr><td>${r.date}</td><td>${r.time}</td><td>${r.Number}</td><td>${r.name}</td><td>${r.temp}°</td><td>LV.${r.level}</td></tr>`).join('');
+  body.innerHTML=historyData.map(r=>`
+    <tr>
+      <td>${r.date}</td>
+      <td>${r.time}</td>
+      <td>${r.Number}</td>
+      <td>${r.name}</td>
+      <td>${r.temp}°</td>
+      <td>LV.${r.level}</td>
+    </tr>
+  `).join('');
 }
 
 function updateStepTag(t,a){
   const el=document.getElementById('stepTag');
-  el.textContent=t; el.classList.toggle('active',a);
+  el.textContent=t;
+  el.classList.toggle('active',a);
 }
 
 function showError(m){
   const el=document.getElementById('errorMessage');
-  el.textContent=m; el.classList.add('show');
+  el.textContent=m;
+  el.classList.add('show');
 }
 
 function startClock(){
   setInterval(()=>{
-    document.getElementById('clock').textContent=new Date().toLocaleTimeString('th-TH');
-    document.getElementById('currentDate').textContent=new Date().toLocaleDateString('th-TH');
+    document.getElementById('clock').textContent=
+      new Date().toLocaleTimeString('th-TH');
   },1000);
 }
 </script>
