@@ -26,9 +26,17 @@
     background: #000; border-radius: 12px; overflow: hidden; border: 2px solid var(--border); margin: 0 auto;
   }
 
-  video, canvas { 
-    position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; 
-  }
+canvas { 
+    position: absolute; 
+    top: 0; left: 0; 
+    width: 100%; height: 100%; 
+    object-fit: cover; 
+    pointer-events: none; /* เพิ่มบรรทัดนี้ */
+    z-index: 5;
+}
+video {
+    z-index: 1; /* ให้วิดีโออยู่ล่างสุด */
+}
 
   .photo-preview-wrap { 
     width: 100%; aspect-ratio: 1 / 1; background: #000; border-radius: 12px; overflow: hidden; display: none; margin-bottom: 10px;
@@ -151,30 +159,45 @@ async function initCamera() {
     } catch(e) { alert("Error: " + e.message); }
 }
 
-function loop() {
+let lastScanTime = 0; // เพิ่มตัวแปรเก็บเวลาล่าสุดที่สแกน
+
+function loop(time) {
     if (state === "COMPLETED") return;
+
     if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        canvasElement.height = video.videoHeight;
-        canvasElement.width = video.videoWidth;
-        canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
+        // วาดภาพลง Canvas เฉพาะเมื่อจำเป็น (เช่น ตอน SNAP หรือตอนต้องการประมวลผลสี)
+        // สำหรับการดูผ่านจอ ให้ใช้ Video Element โดยตรงจะลื่นกว่า
 
         if (state === "SCAN_QR") {
-            const imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
-            const code = jsQR(imageData.data, imageData.width, imageData.height);
-            if (code) {
-                try {
-                    const url = new URL(code.data);
-                    currentName = url.searchParams.get('name') || "Unknown";
-                    document.getElementById("displayUserName").textContent = currentName;
-                    state = "SNAP_BOTTLE";
-                    document.getElementById("btnSnap").style.display = "flex";
-                    document.getElementById("btnReset").style.display = "flex";
-                    document.getElementById("bottleGuide").classList.add("show");
-                    document.getElementById("stepTag").textContent = "STEP 2: SNAP BOTTLE";
-                } catch(e) {}
+            // สแกนทุกๆ 250ms (4 ครั้งต่อวินาที) เพื่อความลื่นไหลของหน้าจอ
+            if (time - lastScanTime > 250) { 
+                canvasElement.height = video.videoHeight;
+                canvasElement.width = video.videoWidth;
+                canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
+                
+                const imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height);
+                
+                if (code) {
+                    try {
+                        const url = new URL(code.data);
+                        currentName = url.searchParams.get('name') || "Unknown";
+                        document.getElementById("displayUserName").textContent = currentName;
+                        state = "SNAP_BOTTLE";
+                        document.getElementById("btnSnap").style.display = "flex";
+                        document.getElementById("btnReset").style.display = "flex";
+                        document.getElementById("bottleGuide").classList.add("add", "show");
+                        document.getElementById("stepTag").textContent = "STEP 2: SNAP BOTTLE";
+                    } catch(e) { console.log("QR Data Error"); }
+                }
+                lastScanTime = time;
             }
         } else if (state === "SNAP_BOTTLE") {
-            // ใช้การเฉลี่ยพื้นที่ 15x15 พิกเซล
+            // การวัดสีทำในทุกเฟรมได้ เพราะใช้ทรัพยากรน้อยกว่าการสแกน QR
+            canvasElement.height = video.videoHeight;
+            canvasElement.width = video.videoWidth;
+            canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
+
             const sampleSize = 15;
             const cX = canvasElement.width / 2 - (sampleSize / 2);
             const cY = canvasElement.height / 2 - (sampleSize / 2);
