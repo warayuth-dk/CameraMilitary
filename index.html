@@ -575,8 +575,27 @@ function updateColorIndicator([r,g,b]) {
   const brightness = (r+g+b)/3;
   const colorDiff = Math.max(r,g,b)-Math.min(r,g,b);
 
-  if (brightness > 185 && colorDiff < 25) currentLV = 0;
-  else currentLV = (g<110)?4:(g<170)?3:(g<205)?2:1;
+  // 👉 normalize สี (แปลงเป็นสัดส่วน)
+  const total = r + g + b;
+  const nr = r / total;
+  const ng = g / total;
+  const nb = b / total;
+
+  if (brightness > 200 && colorDiff < 20) {
+    currentLV = 0; // ใส
+  } 
+  else if (nr > 0.45 && ng > 0.35) {
+    currentLV = 2; // เหลืองปกติ
+  } 
+  else if (nr > 0.5 && ng < 0.35) {
+    currentLV = 3; // ส้ม (ขาดน้ำเล็กน้อย)
+  } 
+  else if (nr > 0.55 && nb < 0.15) {
+    currentLV = 4; // เข้มมาก
+  } 
+  else {
+    currentLV = 1; // เหลืองจาง
+  }
 
   const lv = LEVELS[currentLV];
 
