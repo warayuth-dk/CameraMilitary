@@ -328,7 +328,7 @@
 
 <div class="container">
   <header>
-    <div class="logo-text">🔬 ปตอ.2 พัน.2จ้า</div>
+    <div class="logo-text">🔬 ปตอ.2 พัน.2</div>
     <div class="header-time">
         <div id="currentDate" class="current-date">-- -- ----</div>
         <div id="clock" class="clock">00:00:00</div>
@@ -412,15 +412,9 @@
 </div>
 
 <script>
-// ================= CONFIG =================
+// ================= CONFIG & STATE =================
 const CONFIG_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyfujc5A_qjCti6nH_AILuOJbPW7oIpAhC3zNeOXVpl01Jn0RL5X2T5a8tyXunmTtoj/exec'; 
 
-// ================= DOM =================
-const video = document.getElementById("video");
-const canvasElement = document.getElementById("canvas");
-const canvas = canvasElement.getContext("2d", { alpha: false, willReadFrequently: true });
-
-// ================= DATA =================
 const LEVELS = [
   { lv: 0, name: "ใส", color: "#ffffff", textColor: "#000" },
   { lv: 1, name: "เหลืองจาง", color: "#FEEFC6", textColor: "#000" },
@@ -429,245 +423,204 @@ const LEVELS = [
   { lv: 4, name: "น้ำตาล/อันตราย", color: "#795548", textColor: "#fff" }
 ];
 
-// ================= STATE =================
 let state = "IDLE";
-let currentName = "";
-let currentBuble = "";
+let currentName = "", currentBuble = "", currentNumber = "";
 let currentLV = 0;
 let historyData = JSON.parse(localStorage.getItem('urine_history_v2') || '[]');
 let cameraStream = null;
 let scanInterval = null;
 
+// สำหรับระบบ Smoothing & Calibration
+let colorBuffer = []; 
+const BUFFER_SIZE = 15; // จำนวนเฟรมที่ใช้หาค่าเฉลี่ย (ประมาณ 0.5-1 วินาที)
+
+const video = document.getElementById("video");
+const canvasElement = document.getElementById("canvas");
+const ctx = canvasElement.getContext("2d", { alpha: false, willReadFrequently: true });
+
 // ================= INIT =================
 document.addEventListener('DOMContentLoaded', () => {
   renderHistory();
   startClock();
-  autoStartCamera(); // 🔥 เปิดกล้องอัตโนมัติ
+  autoStartCamera();
 });
 
-// ================= AUTO CAMERA =================
 async function autoStartCamera() {
   try {
     const devices = await navigator.mediaDevices.enumerateDevices();
-    const hasCamera = devices.some(d => d.kind === 'videoinput');
-    if (!hasCamera) return;
-
-    await initCamera(); // 👉 เปิดเลย
-  } catch (e) {
-    console.log("Auto camera blocked:", e);
-  }
+    if (devices.some(d => d.kind === 'videoinput')) await initCamera();
+  } catch (e) { console.log("Auto camera blocked"); }
 }
 
-// ================= CAMERA =================
 async function initCamera() {
   try {
     const constraints = {
       video: {
         facingMode: "environment",
-        width: { ideal: 720 },
+        width: { ideal: 1280 }, // iPhone 13+ ชอบความละเอียดสูง
         height: { ideal: 720 }
       }
     };
-
     cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
     video.srcObject = cameraStream;
     await video.play();
-
     document.getElementById("instructionOverlay").style.display = "none";
-
     state = "SCAN_QR";
     updateStepTag("STEP 1: SCAN QR CODE", true);
-
-    canvasElement.style.display = "none";
-
     scanInterval = setInterval(scanQRCode, 400);
     requestAnimationFrame(loop);
-
-  } catch(e) { 
-    showError("เปิดกล้องไม่ได้: " + e.message);
-  }
+  } catch(e) { showError("เปิดกล้องไม่ได้: " + e.message); }
 }
 
-// ================= QR =================
+// ================= QR SCANNER =================
 function scanQRCode() {
   if (state !== "SCAN_QR" || video.readyState !== video.HAVE_ENOUGH_DATA) return;
-
-  const scanSize = 300;
-  canvasElement.width = scanSize;
-  canvasElement.height = scanSize;
-
-  const sx = (video.videoWidth - scanSize) / 2;
-  const sy = (video.videoHeight - scanSize) / 2;
-
-  canvas.drawImage(video, sx, sy, scanSize, scanSize, 0, 0, scanSize, scanSize);
-
-  const imageData = canvas.getImageData(0, 0, scanSize, scanSize);
-  const code = jsQR(imageData.data, imageData.width, imageData.height);
-
+  const size = 400;
+  canvasElement.width = size; canvasElement.height = size;
+  ctx.drawImage(video, (video.videoWidth-size)/2, (video.videoHeight-size)/2, size, size, 0, 0, size, size);
+  const code = jsQR(ctx.getImageData(0, 0, size, size).data, size, size);
   if (code) handleQRCodeDetected(code.data);
 }
 
 function handleQRCodeDetected(qrData) {
   try {
     const url = new URL(qrData);
-    console.log("QR RAW:", qrData);
-
     currentNumber = url.searchParams.get('Number') || "-";
     currentName = url.searchParams.get('name') || "Unknown";
     currentBuble = url.searchParams.get('Buble') || "-";
-
-    console.log("Number =", url.searchParams.get('Number'));
-    console.log("name =", url.searchParams.get('name'));
-    console.log("Buble =", url.searchParams.get('Buble'));
-
     document.getElementById("displayUserName").innerHTML =`เลขที่: ${currentNumber}<br>ชื่อ: ${currentName}<br>Bubble: ${currentBuble}`;
-
     clearInterval(scanInterval);
-
     state = "SNAP_BOTTLE";
-
-    canvasElement.style.display = "block";
-
-    updateStepTag("STEP 2: SNAP BOTTLE", true);
-
     document.getElementById("btnSnap").style.display = "flex";
     document.getElementById("btnReset").style.display = "flex";
     document.getElementById("bottleGuide").classList.add("show");
-
-  } catch {
-    showError("QR ไม่ถูกต้อง");
-  }
+    updateStepTag("STEP 2: SNAP BOTTLE", true);
+  } catch { showError("QR ไม่ถูกต้อง"); }
 }
 
-// ================= LOOP =================
+// ================= COLOR ANALYZER (IPHONE 13+ OPTIMIZED) =================
 function loop() {
   if (state === "COMPLETED") return;
-
   if (state === "SNAP_BOTTLE" && video.readyState === video.HAVE_ENOUGH_DATA) {
     canvasElement.width = video.videoWidth;
     canvasElement.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0);
 
-    canvas.drawImage(video, 0, 0);
+    const centerX = canvasElement.width / 2;
+    const centerY = canvasElement.height / 2;
 
-    const imgData = canvas.getImageData(
-      canvasElement.width/2 - 7,
-      canvasElement.height/2 - 7,
-      15,
-      15
-    ).data;
+    // 1. Sampling สีปัสสาวะ (Target) - ขยายเป็น 25x25
+    const targetRGB = getAvgRGB(centerX, centerY, 25);
+    
+    // 2. Sampling สีพื้นหลัง (White Reference) - อ่านที่มุมขวาบนของขวด
+    // เพื่อเอามาแก้ปัญหา iPhone ปรับ White Balance อัตโนมัติ
+    const refRGB = getAvgRGB(centerX + 80, centerY - 120, 15);
 
-    let r=0,g=0,b=0;
-    for(let i=0;i<imgData.length;i+=4){
-      r+=imgData[i];
-      g+=imgData[i+1];
-      b+=imgData[i+2];
-    }
+    // 3. Normalization: ชดเชยค่าแสงจากพื้นหลังขาว
+    const normalizedRGB = [
+      Math.min(255, (targetRGB[0] / Math.max(refRGB[0], 1)) * 255),
+      Math.min(255, (targetRGB[1] / Math.max(refRGB[1], 1)) * 255),
+      Math.min(255, (targetRGB[2] / Math.max(refRGB[2], 1)) * 255)
+    ];
 
-    const px = imgData.length/4;
-    updateColorIndicator([r/px,g/px,b/px]);
+    // 4. Smoothing: ใช้ Buffer เพื่อให้ค่านิ่ง
+    colorBuffer.push({rgb: normalizedRGB, ref: refRGB});
+    if (colorBuffer.length > BUFFER_SIZE) colorBuffer.shift();
+
+    const smoothed = colorBuffer.reduce((acc, curr) => [acc[0]+curr.rgb[0], acc[1]+curr.rgb[1], acc[2]+curr.rgb[2]], [0,0,0])
+                                .map(v => v / colorBuffer.length);
+    const avgRef = colorBuffer.reduce((acc, curr) => [acc[0]+curr.ref[0], acc[1]+curr.ref[1], acc[2]+curr.ref[2]], [0,0,0])
+                                .map(v => v / colorBuffer.length);
+
+    updateColorIndicator(smoothed, avgRef);
   }
-
   requestAnimationFrame(loop);
 }
 
-// ================= COLOR =================
-function updateColorIndicator([r, g, b]) {
-  // 1. คำนวณความสว่าง (0-255)
+function getAvgRGB(x, y, size) {
+  const data = ctx.getImageData(x - size/2, y - size/2, size, size).data;
+  let r=0, g=0, b=0;
+  for(let i=0; i<data.length; i+=4) { r+=data[i]; g+=data[i+1]; b+=data[i+2]; }
+  const n = data.length/4;
+  return [r/n, g/n, b/n];
+}
+
+function updateColorIndicator(rgb, refRGB) {
+  const [r, g, b] = rgb;
   const brightness = (0.299 * r + 0.587 * g + 0.114 * b);
-  
-  // 2. แปลง RGB -> HSV
+  const refBrightness = (0.299 * refRGB[0] + 0.587 * refRGB[1] + 0.114 * refRGB[2]);
+
+  // RGB to HSV
   const r1 = r/255, g1 = g/255, b1 = b/255;
-  const max = Math.max(r1, g1, b1), min = Math.min(r1, g1, b1), delta = max - min;
-  let h = 0, s = (max === 0 ? 0 : delta / max);
-  if (delta !== 0) {
-    if (max === r1) h = 60 * (((g1 - b1) / delta) % 6);
-    else if (max === g1) h = 60 * ((b1 - r1) / delta + 2);
-    else h = 60 * ((r1 - g1) / delta + 4);
+  const max = Math.max(r1, g1, b1), min = Math.min(r1, g1, b1), d = max - min;
+  let h = 0, s = max === 0 ? 0 : d / max;
+  if (d !== 0) {
+    if (max === r1) h = 60 * (((g1 - b1) / d) % 6);
+    else if (max === g1) h = 60 * ((b1 - r1) / d + 2);
+    else h = 60 * ((r1 - g1) / d + 4);
   }
   if (h < 0) h += 360;
 
-  // 3. --- DYNAMIC CALIBRATION LOGIC ---
-  // เมื่อแสงจ้า (Brightness > 200) สีจะดูซีดลง (S ลดลง) -> ต้องลดเกณฑ์ S ลงเพื่อให้ตรวจจับเจอ
-  // เมื่อแสงน้อย (Brightness < 100) สีจะดูมืดและนัว (S เพี้ยน) -> ต้องเพิ่มเกณฑ์ S เพื่อกัน Noise
-  
-  let s_threshold = 0.20; // ค่ากลาง
-  if (brightness > 200) s_threshold = 0.15; // แสงจ้ามาก ยอมให้ S ต่ำลง
-  if (brightness < 100) s_threshold = 0.25; // แสงน้อย ต้อง S สูงถึงจะเชื่อว่าเป็นสีจริง
+  // --- DYNAMIC LOGIC (จูนสำหรับ iPhone 13+) ---
+  let lv = 1;
+  let s_threshold = (brightness > 200) ? 0.15 : 0.22; // ถ้าแสงจ้า ลดเกณฑ์ Saturation ลง
 
-  let detectedLV = 1;
-
-  // เรียงลำดับเงื่อนไข (Priority: เข้ม -> จาง)
-  if (s < 0.10 && brightness > 210) {
-    detectedLV = 0; // ใส (เกือบขาว)
-  }
-  else if (h >= 10 && h < 38) { 
-    // โซนสีน้ำตาล/ส้มเข้ม
-    if (s > (s_threshold * 1.8)) detectedLV = 4; // เข้มจัด
-    else if (s > (s_threshold * 1.3)) detectedLV = 3; // ส้ม
-    else detectedLV = 2; // ถ้า S ต่ำในโซนนี้ ให้เป็นเหลืองปกติ
-  }
-  else if (h >= 38 && h <= 70) {
-    // โซนสีเหลือง
-    if (s > s_threshold) detectedLV = 2; // เหลืองชัดเจน
-    else detectedLV = 1; // เหลืองจาง
-  }
-  else {
-    // กรณีสีหลุดโซน หรือ Saturation ต่ำมาก
-    detectedLV = (brightness > 180) ? 1 : 2; 
+  if (s < 0.12 && brightness > 200) {
+    lv = 0; // ใส
+  } else if (h >= 10 && h < 42) { // โซนส้ม/น้ำตาล
+    lv = (s > s_threshold * 2.5) ? 4 : 3;
+  } else if (h >= 42 && h <= 72) { // โซนเหลือง
+    lv = (s > s_threshold) ? 2 : 1;
+  } else {
+    lv = (brightness > 180) ? 1 : 2;
   }
 
-  currentLV = detectedLV;
-  
-  // 4. UI Update พร้อมระบบแจ้งเตือนสภาพแสง
-  renderColorUI(r, g, b, h, s, brightness);
+  currentLV = lv;
+  renderColorUI(r, g, b, h, s, brightness, refBrightness);
 }
 
-function renderColorUI(r, g, b, h, s, brightness) {
+function renderColorUI(r, g, b, h, s, brightness, refBrightness) {
   const lv = LEVELS[currentLV];
   const box = document.getElementById("colorResult");
+  const stepTag = document.getElementById("stepTag");
   
-  // แจ้งเตือนเรื่องแสง (UX เพื่อความแม่นยำ)
-  let lightWarning = "";
-  if (brightness > 230) lightWarning = "⚠️ แสงจ้าไป (สีอาจซีด)";
-  if (brightness < 70) lightWarning = "⚠️ มืดไป (สีอาจเพี้ยน)";
+  // แจ้งเตือนสภาพแสงผ่าน StepTag
+  if (refBrightness < 140) {
+    stepTag.innerHTML = "⚠️ มืดเกินไป - หันเข้าหาแสงหรือผนังขาว";
+    stepTag.style.background = "var(--danger)";
+  } else if (refBrightness > 245) {
+    stepTag.innerHTML = "⚠️ แสงจ้าไป - ลดความจ้าของไฟ";
+    stepTag.style.background = "var(--danger)";
+  } else {
+    stepTag.innerHTML = "STEP 2: วางขวดให้ตรงกรอบ";
+    stepTag.style.background = "var(--accent)";
+  }
 
   box.style.background = `rgb(${r},${g},${b})`;
   box.innerHTML = `
-    <div style="font-size: 18px;">LV.${currentLV} - ${lv.name}</div>
-    <div style="font-size: 10px; margin-top: 4px; opacity: 0.8;">
-      H:${Math.round(h)}° S:${(s*100).toFixed(0)}% B:${Math.round(brightness)}
-      <br><b style="color: #ff4444;">${lightWarning}</b>
-    </div>
+    <div style="font-size: 18px; letter-spacing:1px;">LV.${currentLV} - ${lv.name}</div>
+    <div style="font-size: 10px; opacity: 0.7;">H:${Math.round(h)}° S:${(s*100).toFixed(0)}% B:${Math.round(brightness)}</div>
   `;
-  box.style.color = brightness > 140 ? "#000" : "#fff";
+  box.style.color = brightness > 150 ? "#000" : "#fff";
 }
 
-// ================= SNAP =================
+// ================= APP ACTIONS =================
 function takePhoto() {
-  document.getElementById("photoSnapshot").src =
-    canvasElement.toDataURL('image/jpeg',0.8);
-
+  document.getElementById("photoSnapshot").src = canvasElement.toDataURL('image/jpeg', 0.8);
   document.getElementById("vFrame").style.display="none";
   document.getElementById("photoWrap").classList.add("show");
-
-  if(cameraStream){
-    cameraStream.getTracks().forEach(t=>t.stop());
-  }
-
+  if(cameraStream) cameraStream.getTracks().forEach(t=>t.stop());
   state="COMPLETED";
   updateStepTag("STEP 3: INPUT TEMP", true);
-
   document.getElementById("tempArea").classList.add("active");
   document.getElementById("btnSave").style.display="flex";
 }
 
-// ================= SAVE =================
 async function confirmSave() {
   const temp = document.getElementById('bodyTemp').value;
   if(!temp) return showError("กรอกอุณหภูมิ");
-  const now = new Date();
   const record = {
-    date: now.toLocaleDateString('th-TH'),
+    date: new Date().toLocaleDateString('th-TH'),
     Number: currentNumber,
     name: currentName,
     buble: currentBuble,
@@ -676,80 +629,40 @@ async function confirmSave() {
     status: LEVELS[currentLV].name,
     time: new Date().toLocaleTimeString('th-TH')
   };
-
   historyData.unshift(record);
   localStorage.setItem('urine_history_v2', JSON.stringify(historyData.slice(0,20)));
   renderHistory();
-
+  document.getElementById("syncStatus").textContent="⏳ กำลังบันทึก...";
   try {
-    await fetch(CONFIG_SHEET_URL,{
-      method:"POST",
-      mode:"no-cors",
-      body:JSON.stringify(record)
-    });
-
+    await fetch(CONFIG_SHEET_URL,{method:"POST", mode:"no-cors", body:JSON.stringify(record)});
     document.getElementById("syncStatus").textContent="✅ สำเร็จ";
-
-    setTimeout(resetApp,1200); // 🔥 ไม่ reload
-
-  } catch {
-    showError("ส่งข้อมูลไม่สำเร็จ");
-  }
+    setTimeout(resetApp, 1200);
+  } catch { showError("ส่งข้อมูลไม่สำเร็จ"); }
 }
 
-// ================= RESET (สำคัญสุด) =================
 function resetApp() {
-  state="IDLE";
-
-  document.getElementById("photoWrap").classList.remove("show");
-  document.getElementById("vFrame").style.display="block";
-  document.getElementById("btnSnap").style.display = "none";
-  document.getElementById("btnSave").style.display="none";
-  document.getElementById("btnReset").style.display="none";
-  document.getElementById("tempArea").classList.remove("active");
-
-  document.getElementById("bodyTemp").value="";
-  document.getElementById("displayUserName").textContent="รอสแกน QR CODE...";
-  document.getElementById("colorResult").innerHTML="สี: --";
-
-  document.getElementById("bottleGuide").classList.remove("show");
-
-  updateStepTag("STEP 1: SCAN QR CODE", true);
-
-  initCamera(); // 🔥 กลับไปสแกนต่อทันที
+  location.reload(); // เคลียร์ RAM กล้อง iPhone ได้ดีที่สุด
 }
 
-// ================= UI =================
 function renderHistory(){
   const body=document.getElementById("historyBody");
-  body.innerHTML=historyData.map(r=>`
-    <tr>
-      <td>${r.date}</td>
-      <td>${r.time}</td>
-      <td>${r.Number}</td>
-      <td>${r.name}</td>
-      <td>${r.temp}°</td>
-      <td>LV.${r.level}</td>
-    </tr>
-  `).join('');
+  body.innerHTML=historyData.map(r=>`<tr><td>${r.date}</td><td>${r.time}</td><td>${r.Number}</td><td>${r.name}</td><td>${r.temp}°</td><td>LV.${r.level}</td></tr>`).join('');
 }
 
 function updateStepTag(t,a){
   const el=document.getElementById('stepTag');
-  el.textContent=t;
-  el.classList.toggle('active',a);
+  el.textContent=t; el.classList.toggle('active',a);
 }
 
 function showError(m){
   const el=document.getElementById('errorMessage');
-  el.textContent=m;
-  el.classList.add('show');
+  el.textContent=m; el.classList.add('show');
 }
 
 function startClock(){
   setInterval(()=>{
-    document.getElementById('clock').textContent=
-      new Date().toLocaleTimeString('th-TH');
+    document.getElementById('clock').textContent=new Date().toLocaleTimeString('th-TH');
+    document.getElementById('currentDate').textContent=new Date().toLocaleDateString('th-TH');
   },1000);
 }
 </script>
