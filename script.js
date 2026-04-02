@@ -137,6 +137,7 @@ const COLOR_CHART_REF = [
 ];
 
 // ================= LOOP (อ่านค่า 2 จุด) =================
+// ================= LOOP (อ่านค่าปัสสาวะ เทียบกับ พื้นหลังขาว) =================
 function loop() {
   if (state === "COMPLETED") return;
 
@@ -148,94 +149,115 @@ function loop() {
     const centerX = canvasElement.width / 2;
     const centerY = canvasElement.height / 2;
 
-    // --- จุดที่ 1: อ่านสีจากขวดปัสสาวะ (กึ่งกลางจอ) ---
-    const targetRGB = getAvgRGB(centerX, centerY, 15);
+    // --- จุดที่ 1: อ่านสีจาก "กลางขวดปัสสาวะ" ---
+    const urineRGB = getAvgRGB(centerX, centerY, 20);
     
-    // --- จุดที่ 2: อ่านสีจากแผ่นเทียบสี (ตำแหน่งที่แผ่นสีเลเวล 2 วางอยู่) ---
-    // ปรับค่า +120 หรือตามตำแหน่งจริงที่คุณติดแผ่นสีไว้ในกล่อง
-    const refRGB = getAvgRGB(centerX + 120, centerY, 15);
+    // --- จุดที่ 2: อ่านสีจาก "พื้นหลังกระดาษ A4" (จุดที่ไม่มีเงาขวดบัง) ---
+    const whiteRGB = getAvgRGB(centerX + 120, centerY - 150, 20); 
 
-    updateColorIndicator(targetRGB, refRGB);
+    updateColorIndicator(urineRGB, whiteRGB);
   }
-
   requestAnimationFrame(loop);
 }
 
-// ฟังก์ชันช่วยหาค่าสีเฉลี่ยในพื้นที่
 function getAvgRGB(x, y, size) {
-  const imgData = canvas.getImageData(x - size/2, y - size/2, size, size).data;
+  const data = canvas.getImageData(x - size/2, y - size/2, size, size).data;
   let r=0, g=0, b=0;
-  for(let i=0; i<imgData.length; i+=4){
-    r += imgData[i]; g += imgData[i+1]; b += imgData[i+2];
-  }
-  const px = imgData.length/4;
-  return [r/px, g/px, b/px];
+  for(let i=0; i<data.length; i+=4){ r+=data[i]; g+=data[i+1]; b+=data[i+2]; }
+  const n = data.length/4;
+  return [r/n, g/n, b/n];
 }
 
-// ================= COLOR (ระบบชดเชยแสงและตัดสินเลเวล) =================
-function updateColorIndicator(targetRGB, refRGB) {
-  const [r_raw, g_raw, b_raw] = targetRGB;
+// ================= COLOR (ระบบวัดสัดส่วนสีเหลือง) =================
+function updateColorIndicator(urine, white) {
+  // 1. คำนวณความสว่าง (Brightness)
+  const urineBr = (0.299 * urine[0] + 0.587 * urine[1] + 0.114 * urine[2]);
+  const whiteBr = (0.299 * white[0] + 0.587 * white[1] + 0.114 * white[2]);
 
-  // 1. คำนวณหา Calibration Factor (แสงแดด/เงา เปลี่ยนไปแค่ไหน?)
-  // เทียบสีแผ่นที่กล้องเห็น (refRGB) กับสีมาตรฐาน (COLOR_CHART_REF[2])
-  const rFactor = refRGB[0] / COLOR_CHART_REF[2].r;
-  const gFactor = refRGB[1] / COLOR_CHART_REF[2].g;
-  const bFactor = refRGB[2] / COLOR_CHART_REF[2].b;
+  // 2. คำนวณความเหลืองแบบ "Relative" (เทียบกับกระดาษขาว)
+  // ปัสสาวะจะดูดกลืนสีน้ำเงิน (Blue) ดังนั้นค่า B จะหายไปเยอะที่สุดเมื่อเทียบกับกระดาษขาว
+  const yellowIndex = (white[2] / Math.max(white[0], 1)) - (urine[2] / Math.max(urine[0], 1));
+  
+  // 3. ปรับจูนเลเวล (ค่าพวกนี้จะ "นิ่ง" มากไม่ว่าแสงจะเปลี่ยน)
+  let lv = 1;
+  
+  // วัดความจาง (Transparency)
+  const brRatio = urineBr / Math.max(whiteBr, 1);
 
-  // 2. ชดเชยค่าสีให้ขวดปัสสาวะ (Calibrated RGB)
-  // วิธีนี้จะทำให้สีขวด "สะอาด" เหมือนไม่มีเงาหรือแสงแดดมาปน
-  const r = r_raw / Math.max(rFactor, 0.01);
-  const g = g_raw / Math.max(gFactor, 0.01);
-  const b = b_raw / Math.max(bFactor, 0.01);
-
-  const brightness = (r + g + b) / 3;
-  const colorDiff = Math.max(r, g, b) - Math.min(r, g, b);
-
-  // 3. แปลง RGB -> HSV (ใช้ค่าที่ Calibrate แล้ว)
-  const r1 = r/255, g1 = g/255, b1 = b/255;
-  const max = Math.max(r1, g1, b1), min = Math.min(r1, g1, b1), delta = max - min;
-  let h = 0, s = (max === 0) ? 0 : delta / max;
-  if (delta !== 0) {
-    if (max === r1) h = 60 * (((g1 - b1) / delta) % 6);
-    else if (max === g1) h = 60 * ((b1 - r1) / delta + 2);
-    else h = 60 * ((r1 - g1) / delta + 4);
+  if (yellowIndex < 0.10 && brRatio > 0.85) {
+    lv = 0; // ใสเหมือนน้ำ (สีน้ำเงินแทบไม่หายไปเลย)
   }
-  if (h < 0) h += 360;
-
-  // 4. LEVEL LOGIC (ใช้ logic เดิมของคุณได้เลย แต่จะแม่นยำขึ้นมาก)
-  if (brightness > 200 && colorDiff < 15 && s < 0.1) {
-    currentLV = 0; // ใส
+  else if (yellowIndex < 0.25) {
+    lv = 1; // เหลืองจาง
   }
-  else if (h >= 10 && h < 38 && s >= 0.40) {
-    currentLV = 4; // น้ำตาล
+  else if (yellowIndex < 0.45) {
+    lv = 2; // เหลืองปกติ
   }
-  else if (h >= 25 && h < 40 && s >= 0.35) {
-    currentLV = 3; // ส้ม
-  }
-  else if (h >= 38 && h <= 68 && s >= 0.18) { 
-    currentLV = 2; // เหลือง
-  }
-  else if (s < 0.18 && brightness > 160) {
-    currentLV = 1; // เหลืองจาง
+  else if (yellowIndex < 0.65) {
+    lv = 3; // ส้ม (สีน้ำเงินถูกดูดกลืนไปมากกว่า 60%)
   }
   else {
-    currentLV = 1; 
+    lv = 4; // น้ำตาล (สีน้ำเงินหายไปเกือบหมด)
   }
 
-  // 5. แสดงผล UI
-  const lv = LEVELS[currentLV];
-  const box = document.getElementById("colorResult");
+  currentLV = lv;
 
-  // แสดงสีจริงที่กล้องเห็น (r_raw) ในกล่อง UI แต่ใช้เลเวลที่ผ่านการคำนวณแล้ว
-  box.style.background = `rgb(${r_raw},${g_raw},${b_raw})`;
-  box.innerHTML = `LV.${currentLV} - ${lv.name} <br> <small>(Calibrated Mode)</small>`;
-  box.style.color = (r_raw + g_raw + b_raw) / 3 > 150 ? "#000" : "#fff";
+  // 4. UI Update
+  const box = document.getElementById("colorResult");
+  const levels_info = LEVELS[lv];
+  
+  box.style.background = `rgb(${urine[0]},${urine[1]},${urine[2]})`;
+  box.innerHTML = `
+    <div style="font-size:18px">LV.${lv} - ${levels_info.name}</div>
+    <div style="font-size:10px; opacity:0.7">ความเข้มข้นสีเหลือง: ${(yellowIndex * 100).toFixed(0)}%</div>
+  `;
+  box.style.color = urineBr > 140 ? "#000" : "#fff";
+}
+// ================= SNAP =================
+// --- เพิ่มตัวแปร Global ไว้ด้านบนสุด ---
+let isFlashOn = false;
+
+// --- ฟังก์ชันสำหรับเปิด-ปิดแฟลช ---
+async function toggleFlash() {
+  if (!cameraStream) return;
+  
+  const track = cameraStream.getVideoTracks()[0];
+  
+  // ตรวจสอบว่าเครื่องรองรับแฟลช (Torch) หรือไม่
+  try {
+    const capabilities = track.getCapabilities();
+    if (!capabilities.torch) {
+      alert("อุปกรณ์หรือเบราว์เซอร์นี้ไม่รองรับการเปิดแฟลช");
+      return;
+    }
+
+    isFlashOn = !isFlashOn;
+    await track.applyConstraints({
+      advanced: [{ torch: isFlashOn }]
+    });
+
+    // อัปเดตหน้าตาปุ่ม
+    const btn = document.getElementById("btnFlash");
+    if (isFlashOn) {
+      btn.classList.add("active");
+      btn.innerHTML = `<span>🔦</span> <small>ปิดแฟลช</small>`;
+    } else {
+      btn.classList.remove("active");
+      btn.innerHTML = `<span>💡</span> <small>เปิดแฟลช</small>`;
+    }
+  } catch (e) {
+    console.error("Flash Error: ", e);
+    alert("ไม่สามารถเปิดแฟลชได้ในโหมดนี้");
+  }
 }
 
-// ================= SNAP =================
+// --- แก้ไขจุดหนึ่งในฟังก์ชัน takePhoto() ---
 function takePhoto() {
+  // ก่อนหยุดกล้อง ให้ปิดแฟลชก่อนเสมอ (เพื่อไม่ให้แฟลชค้าง)
+  if (isFlashOn) toggleFlash();
+  
   document.getElementById("photoSnapshot").src =
-    canvasElement.toDataURL('image/jpeg',0.8);
+    canvasElement.toDataURL('image/jpeg', 0.8);
 
   document.getElementById("vFrame").style.display="none";
   document.getElementById("photoWrap").classList.add("show");
