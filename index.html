@@ -50,7 +50,7 @@
     box-shadow: 0 4px 20px rgba(0,0,0,0.4);
   }
   
-  /* Camera Viewfinder */
+  /* Camera Viewfinder - Optimized for Performance */
   .viewfinder { 
     position: relative; width: 100%; aspect-ratio: 1 / 1; 
     background: #000; border-radius: 12px; overflow: hidden; 
@@ -64,6 +64,7 @@
     z-index: 1; display: block;
   }
 
+  /* Canvas - Hidden during QR scan, shown during color detection */
   canvas { 
     position: absolute; top: 0; left: 0; 
     width: 100%; height: 100%; 
@@ -84,13 +85,13 @@
   }
   
   @keyframes pulseGlow {
-    0%, 100% { box-shadow: 0 0 10px rgba(0, 255, 157, 0.3); }
-    50% { box-shadow: 0 0 20px rgba(0, 255, 157, 0.6); }
+    0%, 100% { box-shadow: 0 0 10px var(--accent2); }
+    50% { box-shadow: 0 0 20px var(--accent2); }
   }
   
   #photoSnapshot { width: 100%; height: 100%; object-fit: cover; }
 
-  /* Bottle Guide */
+  /* Bottle Guide - Smaller for better accuracy */
   .bottle-guide { 
     position: absolute; top: 50%; left: 50%; 
     transform: translate(-50%, -50%); 
@@ -115,7 +116,7 @@
     font-size: 11px; font-weight: bold; white-space: nowrap;
   }
 
-  /* Center Aim */
+  /* Center Aim - Color sampling indicator */
   .center-aim {
     position: absolute; top: 50%; left: 50%; 
     transform: translate(-50%, -50%);
@@ -150,28 +151,16 @@
   /* Input Field */
   .input-field { 
     width: 100%; background: #0d1117; 
-    border: 2px solid var(--border); color: var(--accent2); 
+    border: 2px solid var(--border); color: #fff; 
     padding: 16px; border-radius: 10px; 
-    font-size: 32px; font-weight: bold; 
+    font-size: 28px; font-weight: bold; 
     text-align: center; font-family: 'Space Mono';
-    
-    appearance: none;
-    -webkit-appearance: none; 
-    -moz-appearance: none;
-    
-    margin: 0; outline: none; line-height: 1.2;
-    transition: border-color 0.3s ease;
+    -webkit-appearance: none; transition: border-color 0.3s ease;
   }
   
   .input-field:focus {
-    border-color: var(--accent2);
-    box-shadow: 0 0 15px rgba(0, 255, 157, 0.2);
-  }
-
-  .input-field::-webkit-outer-spin-button,
-  .input-field::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
+    outline: none; border-color: var(--accent);
+    box-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
   }
 
   /* Buttons */
@@ -189,11 +178,12 @@
   .btn-save { 
     background: linear-gradient(135deg, var(--accent2), #00cc7a);
     color: #000; display: none; margin-top: 15px; font-size: 17px;
-    box-shadow: 0 0 20px rgba(0, 255, 157, 0.3);
   }
   .btn-reset { background: #333; color: #fff; display: none; }
   
-  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn:disabled {
+    opacity: 0.5; cursor: not-allowed;
+  }
 
   /* Info Display */
   .info-section {
@@ -206,7 +196,9 @@
     text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;
   }
   
-  .info-value { font-size: 20px; color: var(--accent); font-weight: 700; }
+  .info-value {
+    font-size: 20px; color: var(--accent); font-weight: 700;
+  }
 
   /* Color Result */
   #colorResult {
@@ -343,6 +335,7 @@
     </div>
   </header>
 
+  <!-- Camera Card -->
   <div class="card">
     <div id="stepTag" class="status-tag">STEP 1: SCAN QR CODE</div>
     
@@ -380,6 +373,7 @@
     <div class="error-message" id="errorMessage"></div>
   </div>
 
+  <!-- Data Entry Card -->
   <div class="card">
     <div class="info-section">
       <p class="info-label">ชื่อ-สกุล ทหาร:</p>
@@ -403,6 +397,7 @@
     <div id="syncStatus" class="sync-status"></div>
   </div>
 
+  <!-- History Card -->
   <div class="card history-section">
     <p class="history-title">📋 RECENT LOGS (TOP 10)</p>
     <table>
@@ -417,15 +412,15 @@
 </div>
 
 <script>
-// Configuration
+// ================= CONFIG =================
 const CONFIG_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyZYdeSJA5X5DDTpPwsKAPh3x-vi2hsCV7j3YdJ7tYSAKxIsIblHqzitHg3Huiu3zeu8Q/exec'; 
 
-// DOM Elements
+// ================= DOM =================
 const video = document.getElementById("video");
 const canvasElement = document.getElementById("canvas");
 const canvas = canvasElement.getContext("2d", { alpha: false, willReadFrequently: true });
 
-// Hydration Levels
+// ================= DATA =================
 const LEVELS = [
   { lv: 0, name: "ใส", color: "#ffffff", textColor: "#000" },
   { lv: 1, name: "เหลืองจาง", color: "#FEEFC6", textColor: "#000" },
@@ -434,8 +429,8 @@ const LEVELS = [
   { lv: 4, name: "น้ำตาล/อันตราย", color: "#795548", textColor: "#fff" }
 ];
 
-// State Management
-let state = "IDLE"; 
+// ================= STATE =================
+let state = "IDLE";
 let currentName = "";
 let currentBuble = "";
 let currentLV = 0;
@@ -443,343 +438,250 @@ let historyData = JSON.parse(localStorage.getItem('urine_history_v2') || '[]');
 let cameraStream = null;
 let scanInterval = null;
 
-// Initialize
+// ================= INIT =================
 document.addEventListener('DOMContentLoaded', () => {
   renderHistory();
   startClock();
+  autoStartCamera(); // 🔥 เปิดกล้องอัตโนมัติ
 });
 
-// Camera Initialization
+// ================= AUTO CAMERA =================
+async function autoStartCamera() {
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const hasCamera = devices.some(d => d.kind === 'videoinput');
+    if (!hasCamera) return;
+
+    await initCamera(); // 👉 เปิดเลย
+  } catch (e) {
+    console.log("Auto camera blocked:", e);
+  }
+}
+
+// ================= CAMERA =================
 async function initCamera() {
   try {
-    showError('');
     const constraints = {
       video: {
         facingMode: "environment",
         width: { ideal: 720 },
-        height: { ideal: 720 },
-        aspectRatio: { ideal: 1 },
-        focusMode: "continuous" // ลดอาการโฟกัสกระตุกในกล้องรุ่นใหม่
+        height: { ideal: 720 }
       }
     };
-    
+
     cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
     video.srcObject = cameraStream;
-    video.setAttribute("playsinline", true);
-    video.setAttribute("webkit-playsinline", true);
-    
     await video.play();
-    
+
     document.getElementById("instructionOverlay").style.display = "none";
+
     state = "SCAN_QR";
     updateStepTag("STEP 1: SCAN QR CODE", true);
-    
-    // Hide canvas during QR scanning for better performance
+
     canvasElement.style.display = "none";
-    
-    // Start QR scanning at optimized interval
+
     scanInterval = setInterval(scanQRCode, 400);
-    
-    // Start main rendering loop
     requestAnimationFrame(loop);
-    
+
   } catch(e) { 
-    console.error('Camera error:', e);
-    showError("ไม่สามารถเข้าถึงกล้องได้: " + e.message);
+    showError("เปิดกล้องไม่ได้: " + e.message);
   }
 }
 
-// QR Code Scanner - Optimized with small canvas
+// ================= QR =================
 function scanQRCode() {
   if (state !== "SCAN_QR" || video.readyState !== video.HAVE_ENOUGH_DATA) return;
 
   const scanSize = 300;
   canvasElement.width = scanSize;
   canvasElement.height = scanSize;
-  
+
   const sx = (video.videoWidth - scanSize) / 2;
   const sy = (video.videoHeight - scanSize) / 2;
+
   canvas.drawImage(video, sx, sy, scanSize, scanSize, 0, 0, scanSize, scanSize);
-  
+
   const imageData = canvas.getImageData(0, 0, scanSize, scanSize);
   const code = jsQR(imageData.data, imageData.width, imageData.height);
-  
-  if (code) {
-    handleQRCodeDetected(code.data);
-  }
+
+  if (code) handleQRCodeDetected(code.data);
 }
 
-// QR Code Handler
 function handleQRCodeDetected(qrData) {
   try {
     const url = new URL(qrData);
     currentName = url.searchParams.get('name') || "Unknown";
     currentBuble = url.searchParams.get('Buble') || "-";
-    
+
     document.getElementById("displayUserName").textContent = currentName;
-    
-    state = "SNAP_BOTTLE";
+
     clearInterval(scanInterval);
-    scanInterval = null;
-    
-    // Show canvas for color detection
+
+    state = "SNAP_BOTTLE";
+
     canvasElement.style.display = "block";
-    
+
     updateStepTag("STEP 2: SNAP BOTTLE", true);
-    
+
     document.getElementById("btnSnap").style.display = "flex";
     document.getElementById("btnReset").style.display = "flex";
     document.getElementById("bottleGuide").classList.add("show");
-    
-  } catch(e) {
-    console.error('QR Parse error:', e);
-    showError('QR Code ไม่ถูกต้อง กรุณาลองใหม่');
+
+  } catch {
+    showError("QR ไม่ถูกต้อง");
   }
 }
 
-// Main Loop - Optimized for color detection
+// ================= LOOP =================
 function loop() {
   if (state === "COMPLETED") return;
 
   if (state === "SNAP_BOTTLE" && video.readyState === video.HAVE_ENOUGH_DATA) {
-    if (canvasElement.width !== video.videoWidth) {
-      canvasElement.width = video.videoWidth;
-      canvasElement.height = video.videoHeight;
-    }
-    
-    canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
+    canvasElement.width = video.videoWidth;
+    canvasElement.height = video.videoHeight;
 
-    const sampleSize = 15;
-    const cX = Math.floor(canvasElement.width / 2 - sampleSize / 2);
-    const cY = Math.floor(canvasElement.height / 2 - sampleSize / 2);
-    const imgData = canvas.getImageData(cX, cY, sampleSize, sampleSize).data;
-    
-    let r = 0, g = 0, b = 0;
-    for (let i = 0; i < imgData.length; i += 4) {
-      r += imgData[i];
-      g += imgData[i + 1];
-      b += imgData[i + 2];
+    canvas.drawImage(video, 0, 0);
+
+    const imgData = canvas.getImageData(
+      canvasElement.width/2 - 7,
+      canvasElement.height/2 - 7,
+      15,
+      15
+    ).data;
+
+    let r=0,g=0,b=0;
+    for(let i=0;i<imgData.length;i+=4){
+      r+=imgData[i];
+      g+=imgData[i+1];
+      b+=imgData[i+2];
     }
-    const pixels = imgData.length / 4;
-    updateColorIndicator([r / pixels, g / pixels, b / pixels]);
+
+    const px = imgData.length/4;
+    updateColorIndicator([r/px,g/px,b/px]);
   }
-  
+
   requestAnimationFrame(loop);
 }
 
-// Enhanced Color Classification
-function updateColorIndicator(rgb) {
-  const [r, g, b] = rgb;
-  const brightness = (r + g + b) / 3;
-  const colorDiff = Math.max(r, g, b) - Math.min(r, g, b);
+// ================= COLOR =================
+function updateColorIndicator([r,g,b]) {
+  const brightness = (r+g+b)/3;
+  const colorDiff = Math.max(r,g,b)-Math.min(r,g,b);
 
-  if (brightness > 185 && colorDiff < 25) {
-    currentLV = 0;
-  } else {
-    currentLV = (g < 110) ? 4 : (g < 170) ? 3 : (g < 205) ? 2 : 1;
-  }
+  if (brightness > 185 && colorDiff < 25) currentLV = 0;
+  else currentLV = (g<110)?4:(g<170)?3:(g<205)?2:1;
 
-  const levelInfo = LEVELS[currentLV];
-  const resBox = document.getElementById("colorResult");
-  
-  resBox.style.background = `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
-  resBox.innerHTML = `<strong>LV.${currentLV}</strong> - ${levelInfo.name}`;
-  resBox.style.color = brightness > 150 ? "#000" : "#fff";
+  const lv = LEVELS[currentLV];
+
+  const box = document.getElementById("colorResult");
+  box.style.background = `rgb(${r},${g},${b})`;
+  box.innerHTML = `LV.${currentLV} - ${lv.name}`;
+  box.style.color = brightness>150?"#000":"#fff";
 }
 
-// Take Photo (Modified to NOT stop camera)
+// ================= SNAP =================
 function takePhoto() {
-  const photoData = canvasElement.toDataURL('image/jpeg', 0.85);
-  document.getElementById("photoSnapshot").src = photoData;
-  
-  // เปลี่ยนจาก display: none เป็นการซ่อนด้วยวิธีอื่น
-  document.getElementById("vFrame").style.opacity = "0"; 
-  document.getElementById("vFrame").style.pointerEvents = "none";
-  
+  document.getElementById("photoSnapshot").src =
+    canvasElement.toDataURL('image/jpeg',0.8);
+
+  document.getElementById("vFrame").style.display="none";
   document.getElementById("photoWrap").classList.add("show");
-  
-  // NOTE: กล้องยังคงเปิดอยู่เป็น Background ทำให้สแกนคนต่อไปได้ทันที
-  
-  state = "COMPLETED";
+
+  if(cameraStream){
+    cameraStream.getTracks().forEach(t=>t.stop());
+  }
+
+  state="COMPLETED";
   updateStepTag("STEP 3: INPUT TEMP", true);
-  
+
   document.getElementById("tempArea").classList.add("active");
-  document.getElementById("btnSave").style.display = "flex";
-  
-  setTimeout(() => {
-    document.getElementById("bodyTemp").focus();
-  }, 300);
+  document.getElementById("btnSave").style.display="flex";
 }
 
-// Reset Scanner to Initial State (Fast Reset)
-function resetScanner() {
-  if (state === "IDLE") return;
-
-  // ซ่อน UI ที่ไม่เกี่ยวข้อง
-  document.getElementById("photoWrap").classList.remove("show");
-  document.getElementById("btnSave").style.display = "none";
-  document.getElementById("btnSnap").style.display = "none";
-  document.getElementById("btnReset").style.display = "none";
-  document.getElementById("bottleGuide").classList.remove("show");
-  
-  // ล้างข้อมูล input และสถานะ
-  document.getElementById('bodyTemp').value = '';
-  document.getElementById('syncStatus').textContent = '';
-  document.getElementById('syncStatus').className = "sync-status";
-  document.getElementById("tempArea").classList.remove("active");
-  document.getElementById('btnSave').disabled = false;
-  
-  currentName = "";
-  currentBuble = "";
-  document.getElementById("displayUserName").textContent = "รอสแกน QR CODE...";
-  document.getElementById("colorResult").innerHTML = "สี: --";
-  document.getElementById("colorResult").style.background = "#222";
-  document.getElementById("colorResult").style.color = "#fff";
-
-  // แสดงกล้องกลับมา
-  document.getElementById("vFrame").style.opacity = "1";
-  document.getElementById("vFrame").style.pointerEvents = "all";
-  document.getElementById("vFrame").style.display = "block"; // เผื่อไว้
-  
-  // สำคัญมาก: เติมคำสั่งปลุกวิดีโอทุกครั้งที่ Reset
-  if (video.paused) {
-      video.play();
-  }
-  state = "SCAN_QR";
-  updateStepTag("STEP 1: SCAN QR CODE", true);
-  
-  // เริ่มสแกน QR ใหม่ทันที
-  if (cameraStream) {
-      if (scanInterval) clearInterval(scanInterval);
-      scanInterval = setInterval(scanQRCode, 400);
-  } else {
-      initCamera();
-  }
-}
-
-// Save Record with validation
+// ================= SAVE =================
 async function confirmSave() {
-  const tempValue = document.getElementById('bodyTemp').value;
-  
-  if (!tempValue) { 
-    showError("⚠️ กรุณากรอกอุณหภูมิร่างกาย");
-    document.getElementById('bodyTemp').focus();
-    return; 
-  }
-  
-  const temp = parseFloat(tempValue);
-  if (temp < 35 || temp > 42) {
-    showError("⚠️ อุณหภูมิไม่อยู่ในช่วงปกติ (35-42°C)");
-    return;
-  }
+  const temp = document.getElementById('bodyTemp').value;
+  if(!temp) return showError("กรอกอุณหภูมิ");
 
-  const now = new Date();
   const record = {
-    date: now.toLocaleDateString('th-TH'),
-    time: now.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'}),
     name: currentName,
-    buble: currentBuble,
-    temp: tempValue,
+    temp,
     level: currentLV,
-    status: LEVELS[currentLV].name,
-    timestamp: now.toISOString()
+    time: new Date().toLocaleTimeString('th-TH')
   };
 
   historyData.unshift(record);
-  localStorage.setItem('urine_history_v2', JSON.stringify(historyData.slice(0, 10)));
+  localStorage.setItem('urine_history_v2', JSON.stringify(historyData.slice(0,20)));
   renderHistory();
 
-  const btnSave = document.getElementById('btnSave');
-  btnSave.disabled = true;
-  
-  const syncStatus = document.getElementById('syncStatus');
-  const spinner = document.getElementById('syncSpinner');
-  
-  syncStatus.textContent = "⏳ กำลังส่งข้อมูล...";
-  syncStatus.className = "sync-status";
-  spinner.style.display = "block";
-  
   try {
-    await fetch(CONFIG_SHEET_URL, { 
-      method: "POST", 
-      mode: "no-cors",
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(record) 
+    await fetch(CONFIG_SHEET_URL,{
+      method:"POST",
+      mode:"no-cors",
+      body:JSON.stringify(record)
     });
-    
-    spinner.style.display = "none";
-    syncStatus.className = "sync-status success";
-    syncStatus.textContent = "✅ บันทึกสำเร็จ!";
-    
-    // เมื่อซิงค์เสร็จ จะเรียกใช้ resetScanner เพื่อพร้อมตรวจคนต่อไปทันที
-    setTimeout(() => resetScanner(), 1500);
-    
-  } catch (e) { 
-    spinner.style.display = "none";
-    syncStatus.className = "sync-status error";
-    syncStatus.textContent = "❌ ข้อผิดพลาด: " + e.message;
-    btnSave.disabled = false;
+
+    document.getElementById("syncStatus").textContent="✅ สำเร็จ";
+
+    setTimeout(resetApp,1200); // 🔥 ไม่ reload
+
+  } catch {
+    showError("ส่งข้อมูลไม่สำเร็จ");
   }
 }
 
-// Render History Table
-function renderHistory() {
-  const body = document.getElementById("historyBody");
-  
-  if (historyData.length === 0) {
-    body.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--muted); padding:20px;">ไม่มีข้อมูล</td></tr>';
-    return;
-  }
-  
-  body.innerHTML = historyData.slice(0, 10).map(r => {
-    const levelInfo = LEVELS[r.level];
-    return `
-      <tr>
-        <td style="font-family:'Space Mono'">${r.time}</td>
-        <td style="font-weight:bold">${r.name}</td>
-        <td style="color:var(--accent2); font-family:'Space Mono'">${r.temp}°</td>
-        <td>
-          <span class="level-badge" style="background:${levelInfo.color}; color:${levelInfo.textColor}">
-            LV.${r.level}
-          </span>
-        </td>
-      </tr>
-    `;
-  }).join('');
+// ================= RESET (สำคัญสุด) =================
+function resetApp() {
+  state="IDLE";
+
+  document.getElementById("photoWrap").classList.remove("show");
+  document.getElementById("vFrame").style.display="block";
+
+  document.getElementById("btnSave").style.display="none";
+  document.getElementById("btnReset").style.display="none";
+  document.getElementById("tempArea").classList.remove("active");
+
+  document.getElementById("bodyTemp").value="";
+  document.getElementById("displayUserName").textContent="รอสแกน QR CODE...";
+  document.getElementById("colorResult").innerHTML="สี: --";
+
+  document.getElementById("bottleGuide").classList.remove("show");
+
+  updateStepTag("STEP 1: SCAN QR CODE", true);
+
+  initCamera(); // 🔥 กลับไปสแกนต่อทันที
 }
 
-// Update Step Tag
-function updateStepTag(text, active = false) {
-  const tag = document.getElementById('stepTag');
-  tag.textContent = text;
-  tag.classList.toggle('active', active);
+// ================= UI =================
+function renderHistory(){
+  const body=document.getElementById("historyBody");
+  body.innerHTML=historyData.map(r=>`
+    <tr>
+      <td>${r.time}</td>
+      <td>${r.name}</td>
+      <td>${r.temp}°</td>
+      <td>LV.${r.level}</td>
+    </tr>
+  `).join('');
 }
 
-// Show Error Message
-function showError(message) {
-  const errorEl = document.getElementById('errorMessage');
-  if (message) {
-    errorEl.textContent = message;
-    errorEl.classList.add('show');
-    setTimeout(() => errorEl.classList.remove('show'), 5000);
-  } else {
-    errorEl.classList.remove('show');
-  }
+function updateStepTag(t,a){
+  const el=document.getElementById('stepTag');
+  el.textContent=t;
+  el.classList.toggle('active',a);
 }
 
-// Clock
-function startClock() {
-  function updateTime() {
-    const now = new Date();
-    document.getElementById('clock').textContent = now.toLocaleTimeString('th-TH');
-    document.getElementById('currentDate').textContent = now.toLocaleDateString('th-TH', {
-      day: 'numeric', 
-      month: 'short', 
-      year: 'numeric'
-    });
-  }
-  updateTime();
-  setInterval(updateTime, 1000);
+function showError(m){
+  const el=document.getElementById('errorMessage');
+  el.textContent=m;
+  el.classList.add('show');
+}
+
+function startClock(){
+  setInterval(()=>{
+    document.getElementById('clock').textContent=
+      new Date().toLocaleTimeString('th-TH');
+  },1000);
 }
 </script>
 </body>
