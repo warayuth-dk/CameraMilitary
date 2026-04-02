@@ -592,9 +592,11 @@ function takePhoto() {
   const photoData = canvasElement.toDataURL('image/jpeg', 0.85);
   document.getElementById("photoSnapshot").src = photoData;
   
-  document.getElementById("vFrame").style.display = "none";
+  // เปลี่ยนจาก display: none เป็นการซ่อนด้วยวิธีอื่น
+  document.getElementById("vFrame").style.opacity = "0"; 
+  document.getElementById("vFrame").style.pointerEvents = "none";
+  
   document.getElementById("photoWrap").classList.add("show");
-  document.getElementById("btnSnap").style.display = "none";
   
   // NOTE: กล้องยังคงเปิดอยู่เป็น Background ทำให้สแกนคนต่อไปได้ทันที
   
@@ -635,9 +637,14 @@ function resetScanner() {
   document.getElementById("colorResult").style.color = "#fff";
 
   // แสดงกล้องกลับมา
-  document.getElementById("vFrame").style.display = "block";
-  canvasElement.style.display = "none";
+  document.getElementById("vFrame").style.opacity = "1";
+  document.getElementById("vFrame").style.pointerEvents = "all";
+  document.getElementById("vFrame").style.display = "block"; // เผื่อไว้
   
+  // สำคัญมาก: เติมคำสั่งปลุกวิดีโอทุกครั้งที่ Reset
+  if (video.paused) {
+      video.play();
+  }
   state = "SCAN_QR";
   updateStepTag("STEP 1: SCAN QR CODE", true);
   
