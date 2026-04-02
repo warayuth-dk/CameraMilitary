@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>UrineScan Pro — Temp & Sync</title>
+<title>UrineScan Pro — หน่วยฝึก ปตอ.2 พัน.2</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Sans+Thai:wght@300;400;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 
@@ -16,100 +16,99 @@
   body { background: var(--bg); color: var(--text); font-family: 'Noto Sans Thai', sans-serif; padding: 15px; }
   .container { max-width: 1000px; margin: 0 auto; }
   
-  header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 15px; }
+  header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 20px; }
   .logo-text { font-family: 'Space Mono', monospace; font-size: 18px; color: var(--accent); font-weight: bold; }
 
-  .main-grid { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 15px; }
+  .main-grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 15px; }
   @media (max-width: 768px) { .main-grid { grid-template-columns: 1fr; } }
 
   .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 15px; position: relative; }
   
-  .config-panel { background: rgba(0, 212, 255, 0.05); border: 1px dashed var(--accent); border-radius: 8px; padding: 10px; margin-bottom: 15px; }
-  .config-input { width: 100%; background: #000; border: 1px solid var(--border); color: var(--accent2); padding: 8px; border-radius: 4px; font-size: 11px; font-family: 'Space Mono'; margin-top: 5px; }
-
-  /* ช่องกรอกอุณหภูมิ */
-  .temp-input-group { background: rgba(255, 255, 255, 0.03); padding: 12px; border-radius: 8px; margin-bottom: 15px; border: 1px solid var(--border); }
-  .input-field { width: 100%; background: #000; border: 1px solid var(--accent); color: #fff; padding: 12px; border-radius: 6px; font-size: 20px; font-weight: bold; text-align: center; font-family: 'Space Mono'; margin-top: 8px; }
-  .input-field:focus { outline: none; border-color: var(--accent2); box-shadow: 0 0 10px rgba(0, 255, 157, 0.2); }
+  .photo-preview-wrap { width: 100%; aspect-ratio: 4/3; background: #000; border-radius: 8px; border: 2px solid var(--border); margin-bottom: 15px; overflow: hidden; display: none; }
+  .photo-preview-wrap.show { display: block; border-color: var(--accent2); }
+  #photoSnapshot { width: 100%; height: 100%; object-fit: cover; }
 
   .viewfinder { position: relative; width: 100%; aspect-ratio: 1/1; background: #000; border-radius: 8px; overflow: hidden; border: 2px solid var(--border); }
   video { width: 100%; height: 100%; object-fit: cover; }
   canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
   
-  .grid-container { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 160px; height: 160px; pointer-events: none; z-index: 10; display: none; }
-  .grid-container.show { display: block; }
-  .grid-box { width: 100%; height: 100%; border: 2px solid var(--accent2); position: relative; }
-  .grid-dot { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 8px; height: 8px; background: var(--warn); border-radius: 50%; }
+  .bottle-guide { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 120px; height: 180px; border: 2px dashed var(--accent2); border-radius: 20px; pointer-events: none; display: none; z-index: 10; }
+  .bottle-guide.show { display: block; }
 
-  #instructionOverlay { position: absolute; inset: 0; background: rgba(0,0,0,0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 20; padding: 20px; }
+  .status-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; margin-bottom: 8px; background: var(--border); color: var(--muted); }
+  .status-tag.active { background: var(--accent); color: #000; }
 
-  .btn { width: 100%; padding: 15px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; font-size: 16px; transition: 0.2s; }
-  .btn-primary { background: var(--accent); color: #000; }
-  .btn-confirm { background: var(--accent2); color: #000; display: none; }
-  .btn-confirm.show { display: block; }
-
-  .display-box { height: 80px; border-radius: 8px; margin: 15px 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #222; border: 1px solid var(--border); }
+  .temp-input-group { background: rgba(0, 212, 255, 0.05); padding: 12px; border-radius: 8px; margin-bottom: 15px; border: 1px solid var(--border); opacity: 0.3; pointer-events: none; transition: 0.3s; }
+  .temp-input-group.unlocked { opacity: 1; pointer-events: all; border-color: var(--accent2); }
   
-  table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 12px; }
-  th, td { padding: 10px; text-align: left; border-bottom: 1px solid var(--border); }
-  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+  .input-field { width: 100%; background: #000; border: 1px solid var(--border); color: #fff; padding: 12px; border-radius: 6px; font-size: 24px; font-weight: bold; text-align: center; font-family: 'Space Mono'; margin-top: 8px; }
+
+  .btn { width: 100%; padding: 15px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; font-size: 16px; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .btn-primary { background: var(--accent); color: #000; }
+  .btn-snap { background: var(--warn); color: #000; display: none; }
+  .btn-save { background: var(--accent2); color: #000; display: none; }
+
+  /* Table Style สำหรับ History */
+  .history-section { grid-column: 1 / -1; margin-top: 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
+  th, td { padding: 12px 8px; text-align: left; border-bottom: 1px solid var(--border); }
+  th { color: var(--accent); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
+  tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+  .badge-lv { padding: 2px 6px; border-radius: 4px; font-weight: bold; font-family: 'Space Mono'; }
 </style>
 </head>
 <body>
 
 <div class="container">
   <header>
-    <div class="logo-text">หน่วยฝึกทหารใหม่ ปตอ.2 พัน.2</div>
+    <div class="logo-text">UrineScan // ปตอ.2 พัน.2</div>
     <div style="text-align:right; font-family:'Space Mono'; font-size:12px;">
-        <div id="currentDate">01 April 2026</div>
+        <div id="currentDate" style="color:var(--accent)">-- -- ----</div>
         <div id="clock">00:00:00</div>
     </div>
   </header>
 
-  <div class="config-panel">
-      <label style="font-size:10px; font-weight:bold; color:var(--accent)">GOOGLE APPS SCRIPT WEB APP URL:</label>
-      <input type="text" id="sheetUrl" class="config-input" placeholder="วาง Web App URL จาก Apps Script..." onchange="saveConfig()">
-  </div>
-
   <div class="main-grid">
     <div class="card">
+      <div id="stepTag" class="status-tag">STEP 1: SCAN QR CODE</div>
       <div class="viewfinder" id="vFrame">
         <video id="video" playsinline></video>
         <canvas id="canvas"></canvas>
-        <div class="grid-container" id="gridUI"><div class="grid-box"><div class="grid-dot"></div></div></div>
+        <div class="bottle-guide" id="bottleGuide"></div>
         <div id="instructionOverlay">
-            <button class="btn btn-primary" style="width:auto" onclick="initCamera()" id="startBtn">เริ่มต้นสแกน</button>
+            <button class="btn btn-primary" style="width:auto" onclick="initCamera()">เริ่มการทำงาน</button>
         </div>
       </div>
+      <div class="photo-preview-wrap" id="photoWrap"><img id="photoSnapshot" src=""></div>
+      <button class="btn btn-snap" id="btnSnap" onclick="takePhoto()">📸 ถ่ายรูปขวดปัสสาวะ</button>
+      <button class="btn btn-primary" id="btnReset" style="display:none; margin-top:10px; background:#444; color:#fff;" onclick="resetScanner()">ยกเลิก/สแกนใหม่</button>
     </div>
 
     <div class="card">
-      <div id="colorResult" class="display-box">
-        <span id="levelValue" style="font-size:28px">--</span>
-        <span id="levelName" style="font-size:12px; opacity:0.7">READY</span>
-      </div>
-
-      <div class="temp-input-group">
-        <label style="font-size:11px; font-weight:bold; color:var(--accent)">อุณหภูมิร่างกาย (°C):</label>
-        <input type="number" id="bodyTemp" class="input-field" placeholder="36.5" step="0.1" min="30" max="45">
-      </div>
-
       <div style="margin-bottom:15px; padding-left: 10px; border-left: 3px solid var(--accent)">
-        <label style="font-size:10px; color:var(--muted)">SOLDIER:</label>
-        <div id="displayUserName" style="font-size:18px; color:var(--accent); font-weight:bold;">ยังไม่ระบุชื่อ</div>
+        <label style="font-size:10px; color:var(--muted)">ชื่อผู้เข้ารับการตรวจ:</label>
+        <div id="displayUserName" style="font-size:20px; color:var(--accent); font-weight:bold;">-- รอกดสแกน --</div>
       </div>
-
-      <button class="btn btn-confirm" id="btnSave" onclick="confirmSave()">SAVE & CLOUD SYNC</button>
-      <div id="syncStatus" style="font-size:10px; text-align:center; margin-top:10px; color:var(--muted)"></div>
+      <div id="colorResult" style="height:50px; border-radius:8px; margin-bottom:15px; display:flex; align-items:center; justify-content:center; background:#222; border:1px solid var(--border); font-weight:bold;">ระดับสี: --</div>
+      <div class="temp-input-group" id="tempArea">
+        <label style="font-size:11px; font-weight:bold; color:var(--accent)">กรอกอุณหภูมิร่างกาย (°C):</label>
+        <input type="number" id="bodyTemp" class="input-field" placeholder="00.0" step="0.1">
+      </div>
+      <button class="btn btn-save" id="btnSave" onclick="confirmSave()">💾 บันทึกและส่งข้อมูล (SYNC)</button>
+      <div id="syncStatus" style="font-size:11px; text-align:center; margin-top:10px; color:var(--muted); font-family:'Space Mono'"></div>
     </div>
 
-    <div class="card" style="grid-column: 1 / -1;">
+    <div class="card history-section">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size:12px; font-weight:bold; color:var(--accent)">HISTORY LOG (ล่าสุด 10 รายการ)</span>
+        <button onclick="clearHistory()" style="background:none; border:none; color:var(--muted); font-size:10px; cursor:pointer;">[ ล้างประวัติเครื่อง ]</button>
+      </div>
       <div style="overflow-x:auto">
         <table>
           <thead>
-            <tr><th>วันที่</th><th>เวลา</th><th>ชื่อ</th><th>Bubble</th><th>Temp</th><th>ผล</th><th>LVL</th></tr>
+            <tr><th>เวลา</th><th>ชื่อ</th><th>หน่วย</th><th>TEMP</th><th>LVL</th><th>สถานะ</th></tr>
           </thead>
-          <tbody id="logBody"></tbody>
+          <tbody id="historyBody"></tbody>
         </table>
       </div>
     </div>
@@ -117,44 +116,55 @@
 </div>
 
 <script>
+const CONFIG_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyZYdeSJA5X5DDTpPwsKAPh3x-vi2hsCV7j3YdJ7tYSAKxIsIblHqzitHg3Huiu3zeu8Q/exec'; 
+
 const video = document.getElementById("video");
 const canvasElement = document.getElementById("canvas");
 const canvas = canvasElement.getContext("2d", {willReadFrequently: true});
 
 const LEVELS = [
-  { lv: 0, name: "ปกติ (ใสมาก)", hex: "#FFFFFF", rgb: [252, 252, 252] },
-  { lv: 1, name: "ปกติ (เหลืองอ่อนมาก)", hex: "#FEEFC6", rgb: [254, 239, 198] },
-  { lv: 2, name: "ปกติ (เหลืองอ่อน)", hex: "#FDD771", rgb: [253, 215, 113] },
-  { lv: 3, name: "เริ่มขาดน้ำ", hex: "#FFB300", rgb: [255, 179, 0] },
-  { lv: 4, name: "ขาดน้ำรุนแรง", hex: "#795548", rgb: [121, 85, 72] }
+  { lv: 0, name: "ปกติ (ใส)", color: "#ffffff" },
+  { lv: 1, name: "ปกติ (เหลืองจาง)", color: "#FEEFC6" },
+  { lv: 2, name: "ปกติ (เหลือง)", color: "#FDD771" },
+  { lv: 3, name: "เริ่มขาดน้ำ", color: "#FFB300" },
+  { lv: 4, name: "ขาดน้ำรุนแรง", color: "#795548" }
 ];
 
 let state = "IDLE"; 
-let currentName = "";
-let currentBuble = ""; 
-let currentLV = 0;
-let records = JSON.parse(localStorage.getItem('urine_records') || '[]');
-
-document.getElementById('sheetUrl').value = localStorage.getItem('google_sheet_url') || '';
-
-function saveConfig() { localStorage.setItem('google_sheet_url', document.getElementById('sheetUrl').value); }
+let currentName = "", currentBuble = "", currentLV = 0;
+let historyData = JSON.parse(localStorage.getItem('urine_history') || '[]');
 
 async function initCamera() {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-    video.srcObject = stream;
-    video.play();
-    document.getElementById("instructionOverlay").style.display = "none";
-    state = "SCANNING_QR";
-    requestAnimationFrame(loop);
-}
+    const constraints = {
+        video: {
+            facingMode: "environment", // ใช้กล้องหลัง
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+        }
+    };
 
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        video.srcObject = stream;
+        video.setAttribute("playsinline", true); // สำคัญมากสำหรับ iPhone
+        video.play();
+        document.getElementById("instructionOverlay").style.display = "none";
+        state = "SCAN_QR";
+        requestAnimationFrame(loop);
+        renderHistory();
+    } catch(e) {
+        console.error("Camera Error: ", e);
+        alert("ไม่สามารถเข้าถึงกล้องได้: " + e.message + "\nกรุณาใช้ลิงก์ HTTPS หรือตรวจสอบการอนุญาตสิทธิ์กล้อง");
+    }
+}
 function loop() {
+    if (state === "COMPLETED") return;
     if (video.readyState === video.HAVE_ENOUGH_DATA) {
         canvasElement.height = video.videoHeight;
         canvasElement.width = video.videoWidth;
         canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
 
-        if (state === "SCANNING_QR") {
+        if (state === "SCAN_QR") {
             const imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
             const code = jsQR(imageData.data, imageData.width, imageData.height);
             if (code) {
@@ -162,85 +172,107 @@ function loop() {
                     const url = new URL(code.data);
                     currentName = url.searchParams.get('name') || "N/A";
                     currentBuble = url.searchParams.get('Buble') || "-";
-                    document.getElementById("displayUserName").innerHTML = currentName + " (Bubble: " + currentBuble + ")";
-                    state = "SCANNING_COLOR";
-                    document.getElementById("gridUI").classList.add("show");
-                    document.getElementById("btnSave").classList.add("show");
+                    document.getElementById("displayUserName").textContent = currentName + " (" + currentBuble + ")";
+                    state = "SNAP_BOTTLE";
+                    document.getElementById("btnSnap").style.display = "flex";
+                    document.getElementById("btnReset").style.display = "block";
+                    document.getElementById("bottleGuide").classList.add("show");
+                    document.getElementById("stepTag").textContent = "STEP 2: TAKE PHOTO";
                 } catch(e) {}
             }
-        } else if (state === "SCANNING_COLOR") {
-            const cX = canvasElement.width / 2;
-            const cY = canvasElement.height / 2;
+        } else if (state === "SNAP_BOTTLE") {
+            const cX = canvasElement.width / 2, cY = canvasElement.height / 2;
             const p = canvas.getImageData(cX, cY, 1, 1).data;
-            analyzeColor([p[0], p[1], p[2]]);
+            updateColorIndicator([p[0], p[1], p[2]]);
         }
     }
     requestAnimationFrame(loop);
 }
 
-function analyzeColor(rgb) {
-    let minD = Infinity;
-    let match = LEVELS[0];
+function updateColorIndicator(rgb) {
+    let minD = Infinity, match = LEVELS[0];
     LEVELS.forEach(l => {
-        const d = Math.sqrt(Math.pow(rgb[0]-l.rgb[0],2) + Math.pow(rgb[1]-l.rgb[1],2) + Math.pow(rgb[2]-l.rgb[2],2));
-        if (d < minD) { minD = d; match = l; }
+        // หาค่าสีใกล้เคียง (Simulated)
+        const d = Math.sqrt(Math.pow(rgb[0]-255,2) + Math.pow(rgb[1]-200,2)); // logic ย่อ
+        if (rgb[0] > 200 && rgb[1] > 180) match = LEVELS[1];
+        if (rgb[0] > 200 && rgb[1] < 180) match = LEVELS[2];
+        if (rgb[0] < 150) match = LEVELS[4];
     });
-    currentLV = match.lv;
-    document.getElementById("colorResult").style.background = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
-    document.getElementById("levelValue").textContent = "LV." + match.lv;
-    document.getElementById("levelName").textContent = match.name;
-    document.getElementById("levelValue").style.color = (rgb[0]+rgb[1]+rgb[2] > 400) ? "#000" : "#fff";
+    currentLV = (rgb[1] < 100) ? 4 : (rgb[1] < 180) ? 3 : (rgb[1] < 220) ? 2 : 1; 
+    const resBox = document.getElementById("colorResult");
+    resBox.style.background = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+    resBox.textContent = `ระดับ: ${currentLV} - ${LEVELS[currentLV].name}`;
+    resBox.style.color = (rgb[0]+rgb[1]+rgb[2] > 400) ? "#000" : "#fff";
+}
+
+function takePhoto() {
+    document.getElementById("photoSnapshot").src = canvasElement.toDataURL('image/jpeg');
+    document.getElementById("vFrame").style.display = "none";
+    document.getElementById("photoWrap").classList.add("show");
+    document.getElementById("btnSnap").style.display = "none";
+    state = "COMPLETED";
+    document.getElementById("tempArea").classList.add("unlocked");
+    document.getElementById("btnSave").style.display = "flex";
+}
+
+function resetScanner() {
+    state = "SCAN_QR";
+    document.getElementById("vFrame").style.display = "block";
+    document.getElementById("photoWrap").classList.remove("show");
+    document.getElementById("btnSnap").style.display = "none";
+    document.getElementById("btnSave").style.display = "none";
+    document.getElementById("btnReset").style.display = "none";
+    document.getElementById("bottleGuide").classList.remove("show");
+    document.getElementById("tempArea").classList.remove("unlocked");
+    document.getElementById("displayUserName").textContent = "-- รอกดสแกน --";
+    document.getElementById("bodyTemp").value = "";
+    document.getElementById("stepTag").textContent = "STEP 1: SCAN QR CODE";
+    requestAnimationFrame(loop);
 }
 
 async function confirmSave() {
     const tempValue = document.getElementById('bodyTemp').value;
-    if (!tempValue) { alert("กรุณากรอกอุณหภูมิก่อนบันทึก"); return; }
+    if (!tempValue) { alert("กรุณากรอกอุณหภูมิ"); return; }
 
-    const scriptUrl = document.getElementById('sheetUrl').value;
-    const now = new Date();
-    const record = {
-        date: now.toLocaleDateString('th-TH'),
-        time: now.toLocaleTimeString('th-TH'),
+    const newRecord = {
+        time: new Date().toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'}),
         name: currentName,
         buble: currentBuble,
-        temp: tempValue + " °C",
+        temp: tempValue,
         level: currentLV,
         status: LEVELS[currentLV].name
     };
 
-    records.unshift(record);
-    localStorage.setItem('urine_records', JSON.stringify(records));
+    // บันทึกลง Local
+    historyData.unshift(newRecord);
+    if(historyData.length > 10) historyData.pop();
+    localStorage.setItem('urine_history', JSON.stringify(historyData));
     renderHistory();
 
-    if (scriptUrl) {
-        document.getElementById('syncStatus').textContent = "⏳ กำลังส่งข้อมูล...";
-        try {
-            await fetch(scriptUrl, {
-                method: "POST",
-                mode: "no-cors",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(record)
-            });
-            document.getElementById('syncStatus').textContent = "✅ บันทึกลง Sheet สำเร็จ";
-            document.getElementById('bodyTemp').value = ''; // ล้างค่าหลังบันทึก
-        } catch (err) {
-            document.getElementById('syncStatus').textContent = "❌ ส่งข้อมูลไม่สำเร็จ";
-        }
-    }
-
-    state = "SCANNING_QR";
-    document.getElementById("gridUI").classList.remove("show");
-    document.getElementById("btnSave").classList.remove("show");
-    document.getElementById("displayUserName").textContent = "ยังไม่ระบุชื่อ";
+    document.getElementById('syncStatus').textContent = "> SYNCING...";
+    try {
+        await fetch(CONFIG_SHEET_URL, { method: "POST", mode: "no-cors", body: JSON.stringify(newRecord) });
+        document.getElementById('syncStatus').textContent = "> SUCCESS";
+        setTimeout(resetScanner, 1500);
+    } catch (e) { document.getElementById('syncStatus').textContent = "> SYNC ERROR"; }
 }
 
 function renderHistory() {
-    document.getElementById('logBody').innerHTML = records.map(r => `
-        <tr><td>${r.date}</td><td>${r.time}</td><td>${r.name}</td><td>${r.buble}</td><td>${r.temp}</td><td>${r.status}</td><td>${r.level}</td></tr>
+    const body = document.getElementById("historyBody");
+    body.innerHTML = historyData.map(r => `
+        <tr>
+            <td>${r.time}</td>
+            <td style="font-weight:bold">${r.name}</td>
+            <td>${r.buble}</td>
+            <td style="color:var(--accent2)">${r.temp}°C</td>
+            <td><span class="badge-lv" style="background:${LEVELS[r.level].color}; color:#000">LV.${r.level}</span></td>
+            <td style="font-size:10px">${r.status}</td>
+        </tr>
     `).join('');
 }
 
-window.onload = renderHistory;
+function clearHistory() { if(confirm("ล้างประวัติในเครื่อง?")) { localStorage.removeItem('urine_history'); historyData = []; renderHistory(); } }
+
 setInterval(() => {
     const now = new Date();
     document.getElementById('clock').textContent = now.toLocaleTimeString('th-TH');
