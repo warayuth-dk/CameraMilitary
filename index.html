@@ -574,9 +574,13 @@ function loop() {
 function updateColorIndicator([r,g,b]) {
   const brightness = (r+g+b)/3;
   const colorDiff = Math.max(r,g,b)-Math.min(r,g,b);
-
+  //ตัดแสงเหลือง
+  const sum = r + g + b;
+  const nr = r / sum;
+  const ng = g / sum;
+  const nb = b / sum;
   if (brightness > 185 && colorDiff < 25) currentLV = 0;
-  else currentLV = (g<110)?4:(g<170)?3:(g<205)?2:1;
+  else currentLV = (ng<0.33)?4:(ng<0.36)?3:(ng<0.40)?2:1;
 
   const lv = LEVELS[currentLV];
 
