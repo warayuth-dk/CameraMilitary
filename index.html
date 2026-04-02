@@ -570,71 +570,72 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
+function getAvgRGB(x, y, size) {
+  const data = ctx.getImageData(x - size/2, y - size/2, size, size).data;
+  let r=0, g=0, b=0;
+  for(let i=0; i<data.length; i+=4) { r+=data[i]; g+=data[i+1]; b+=data[i+2]; }
+  const n = data.length/4;
+  return [r/n, g/n, b/n];
+}
 // ================= COLOR =================
-function updateColorIndicator([r,g,b]) {
-  const brightness = (r+g+b)/3;
+function updateColorIndicator(rgb, refRGB) {
+  const [r, g, b] = rgb;
+  const brightness = (0.299 * r + 0.587 * g + 0.114 * b);
+  const refBrightness = (0.299 * refRGB[0] + 0.587 * refRGB[1] + 0.114 * refRGB[2]);
 
-  // 👉 หาความใส
-  const colorDiff = Math.max(r,g,b) - Math.min(r,g,b);
-
-  // 👉 แปลง RGB -> HSV
+  // RGB to HSV
   const r1 = r/255, g1 = g/255, b1 = b/255;
-  const max = Math.max(r1,g1,b1);
-  const min = Math.min(r1,g1,b1);
-  const delta = max - min;
-
-  let h = 0, s = 0, v = max;
-
-  if (delta !== 0) {
-    s = delta / max;
-
-    if (max === r1) {
-      h = 60 * (((g1 - b1) / delta) % 6);
-    } else if (max === g1) {
-      h = 60 * ((b1 - r1) / delta + 2);
-    } else {
-      h = 60 * ((r1 - g1) / delta + 4);
-    }
+  const max = Math.max(r1, g1, b1), min = Math.min(r1, g1, b1), d = max - min;
+  let h = 0, s = max === 0 ? 0 : d / max;
+  if (d !== 0) {
+    if (max === r1) h = 60 * (((g1 - b1) / d) % 6);
+    else if (max === g1) h = 60 * ((b1 - r1) / d + 2);
+    else h = 60 * ((r1 - g1) / d + 4);
   }
-
   if (h < 0) h += 360;
 
-  // ================= LEVEL LOGIC =================
+  // --- DYNAMIC LOGIC (จูนสำหรับ iPhone 13+) ---
+  let lv = 1;
+  let s_threshold = (brightness > 200) ? 0.15 : 0.22; // ถ้าแสงจ้า ลดเกณฑ์ Saturation ลง
 
- // --- ส่วนการคำนวณ H, S, L หรือ Hue/Saturation ต้องคำนวณมาก่อนหน้านี้นะครับ ---
-
-  if (brightness > 200 && colorDiff < 15 && s < 0.1) {
-    currentLV = 0; // ใส (ใสเหมือนน้ำเปล่า)
-  }
-  else if (h >= 10 && h < 38 && s >= 0.40) {
-    currentLV = 4; // เข้ม/น้ำตาล (เช็คค่าวิกฤตก่อน)
-  }
-  else if (h >= 25 && h < 40 && s >= 0.35) {
-    currentLV = 3; // ส้ม (ขาดน้ำ)
-  }
-  else if (h >= 38 && h <= 68 && s >= 0.18) { 
-    // จูน LV.2 ให้ครอบคลุมมากขึ้น 
-    // โดยเช็คว่าถ้า Saturation เกิน 0.18 (เริ่มมีสี) แต่ยังอยู่ในโซนสีเหลือง ให้เป็น LV.2
-    currentLV = 2; // เหลือง
-  }
-  else if (s < 0.18 && brightness > 160) {
-    // ถ้าสีจางกว่า 0.18 ลงไป (จืดเกือบขาว) ให้ตกมาอยู่ที่ LV.1
-    currentLV = 1; // เหลืองจาง
-  }
-  else {
-    // กรณีอื่นๆ ที่หลุดรอดมา ให้ Default ไว้ที่ค่าใดค่าหนึ่ง (แนะนำ LV.1 หรือ 2 ตามหน้างาน)
-    currentLV = 1; 
+  if (s < 0.12 && brightness > 200) {
+    lv = 0; // ใส
+  } else if (h >= 10 && h < 42) { // โซนส้ม/น้ำตาล
+    lv = (s > s_threshold * 2.5) ? 4 : 3;
+  } else if (h >= 42 && h <= 72) { // โซนเหลือง
+    lv = (s > s_threshold) ? 2 : 1;
+  } else {
+    lv = (brightness > 180) ? 1 : 2;
   }
 
-  // ================= UI =================
-  const lv = LEVELS[currentLV];
-  const box = document.getElementById("colorResult");
-
-  box.style.background = `rgb(${r},${g},${b})`;
-  box.innerHTML = `LV.${currentLV} - ${lv.name}`;
-  box.style.color = brightness>150?"#000":"#fff";
+  currentLV = lv;
+  renderColorUI(r, g, b, h, s, brightness, refBrightness);
 }
 
+function renderColorUI(r, g, b, h, s, brightness, refBrightness) {
+  const lv = LEVELS[currentLV];
+  const box = document.getElementById("colorResult");
+  const stepTag = document.getElementById("stepTag");
+  
+  // แจ้งเตือนสภาพแสงผ่าน StepTag
+  if (refBrightness < 140) {
+    stepTag.innerHTML = "⚠️ มืดเกินไป - หันเข้าหาแสงหรือผนังขาว";
+    stepTag.style.background = "var(--danger)";
+  } else if (refBrightness > 245) {
+    stepTag.innerHTML = "⚠️ แสงจ้าไป - ลดความจ้าของไฟ";
+    stepTag.style.background = "var(--danger)";
+  } else {
+    stepTag.innerHTML = "STEP 2: วางขวดให้ตรงกรอบ";
+    stepTag.style.background = "var(--accent)";
+  }
+
+  box.style.background = `rgb(${r},${g},${b})`;
+  box.innerHTML = `
+    <div style="font-size: 18px; letter-spacing:1px;">LV.${currentLV} - ${lv.name}</div>
+    <div style="font-size: 10px; opacity: 0.7;">H:${Math.round(h)}° S:${(s*100).toFixed(0)}% B:${Math.round(brightness)}</div>
+  `;
+  box.style.color = brightness > 150 ? "#000" : "#fff";
+}
 // ================= SNAP =================
 function takePhoto() {
   document.getElementById("photoSnapshot").src =
