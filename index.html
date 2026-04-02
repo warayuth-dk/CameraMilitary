@@ -50,7 +50,7 @@
     box-shadow: 0 4px 20px rgba(0,0,0,0.4);
   }
   
-  /* Camera Viewfinder - Optimized for Performance */
+  /* Camera Viewfinder */
   .viewfinder { 
     position: relative; width: 100%; aspect-ratio: 1 / 1; 
     background: #000; border-radius: 12px; overflow: hidden; 
@@ -64,7 +64,6 @@
     z-index: 1; display: block;
   }
 
-  /* Canvas - Hidden during QR scan, shown during color detection */
   canvas { 
     position: absolute; top: 0; left: 0; 
     width: 100%; height: 100%; 
@@ -85,13 +84,13 @@
   }
   
   @keyframes pulseGlow {
-    0%, 100% { box-shadow: 0 0 10px var(--accent2); }
-    50% { box-shadow: 0 0 20px var(--accent2); }
+    0%, 100% { box-shadow: 0 0 10px rgba(0, 255, 157, 0.3); }
+    50% { box-shadow: 0 0 20px rgba(0, 255, 157, 0.6); }
   }
   
   #photoSnapshot { width: 100%; height: 100%; object-fit: cover; }
 
-  /* Bottle Guide - Smaller for better accuracy */
+  /* Bottle Guide */
   .bottle-guide { 
     position: absolute; top: 50%; left: 50%; 
     transform: translate(-50%, -50%); 
@@ -116,7 +115,7 @@
     font-size: 11px; font-weight: bold; white-space: nowrap;
   }
 
-  /* Center Aim - Color sampling indicator */
+  /* Center Aim */
   .center-aim {
     position: absolute; top: 50%; left: 50%; 
     transform: translate(-50%, -50%);
@@ -151,16 +150,28 @@
   /* Input Field */
   .input-field { 
     width: 100%; background: #0d1117; 
-    border: 2px solid var(--border); color: #fff; 
+    border: 2px solid var(--border); color: var(--accent2); 
     padding: 16px; border-radius: 10px; 
-    font-size: 28px; font-weight: bold; 
+    font-size: 32px; font-weight: bold; 
     text-align: center; font-family: 'Space Mono';
-    -webkit-appearance: none; transition: border-color 0.3s ease;
+    
+    appearance: none;
+    -webkit-appearance: none; 
+    -moz-appearance: none;
+    
+    margin: 0; outline: none; line-height: 1.2;
+    transition: border-color 0.3s ease;
   }
   
   .input-field:focus {
-    outline: none; border-color: var(--accent);
-    box-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
+    border-color: var(--accent2);
+    box-shadow: 0 0 15px rgba(0, 255, 157, 0.2);
+  }
+
+  .input-field::-webkit-outer-spin-button,
+  .input-field::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
   }
 
   /* Buttons */
@@ -178,12 +189,11 @@
   .btn-save { 
     background: linear-gradient(135deg, var(--accent2), #00cc7a);
     color: #000; display: none; margin-top: 15px; font-size: 17px;
+    box-shadow: 0 0 20px rgba(0, 255, 157, 0.3);
   }
   .btn-reset { background: #333; color: #fff; display: none; }
   
-  .btn:disabled {
-    opacity: 0.5; cursor: not-allowed;
-  }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
   /* Info Display */
   .info-section {
@@ -196,9 +206,7 @@
     text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;
   }
   
-  .info-value {
-    font-size: 20px; color: var(--accent); font-weight: 700;
-  }
+  .info-value { font-size: 20px; color: var(--accent); font-weight: 700; }
 
   /* Color Result */
   #colorResult {
@@ -335,7 +343,6 @@
     </div>
   </header>
 
-  <!-- Camera Card -->
   <div class="card">
     <div id="stepTag" class="status-tag">STEP 1: SCAN QR CODE</div>
     
@@ -373,7 +380,6 @@
     <div class="error-message" id="errorMessage"></div>
   </div>
 
-  <!-- Data Entry Card -->
   <div class="card">
     <div class="info-section">
       <p class="info-label">ชื่อ-สกุล ทหาร:</p>
@@ -397,9 +403,8 @@
     <div id="syncStatus" class="sync-status"></div>
   </div>
 
-  <!-- History Card -->
   <div class="card history-section">
-    <p class="history-title">📋 RECENT LOGS (TOP 5)</p>
+    <p class="history-title">📋 RECENT LOGS (TOP 10)</p>
     <table>
       <thead>
         <tr><th>เวลา</th><th>ชื่อ</th><th>อุณหภูมิ</th><th>ระดับ</th></tr>
@@ -444,17 +449,17 @@ document.addEventListener('DOMContentLoaded', () => {
   startClock();
 });
 
-// Camera Initialization - Optimized for iPhone 8
+// Camera Initialization
 async function initCamera() {
   try {
     showError('');
-    
     const constraints = {
       video: {
         facingMode: "environment",
         width: { ideal: 720 },
         height: { ideal: 720 },
-        aspectRatio: { ideal: 1 }
+        aspectRatio: { ideal: 1 },
+        focusMode: "continuous" // ลดอาการโฟกัสกระตุกในกล้องรุ่นใหม่
       }
     };
     
@@ -472,7 +477,7 @@ async function initCamera() {
     // Hide canvas during QR scanning for better performance
     canvasElement.style.display = "none";
     
-    // Start QR scanning at optimized interval (400ms for iPhone 8)
+    // Start QR scanning at optimized interval
     scanInterval = setInterval(scanQRCode, 400);
     
     // Start main rendering loop
@@ -488,12 +493,10 @@ async function initCamera() {
 function scanQRCode() {
   if (state !== "SCAN_QR" || video.readyState !== video.HAVE_ENOUGH_DATA) return;
 
-  // Use small canvas (300x300) for QR scanning to save CPU
   const scanSize = 300;
   canvasElement.width = scanSize;
   canvasElement.height = scanSize;
   
-  // Draw only center portion of video to small canvas
   const sx = (video.videoWidth - scanSize) / 2;
   const sy = (video.videoHeight - scanSize) / 2;
   canvas.drawImage(video, sx, sy, scanSize, scanSize, 0, 0, scanSize, scanSize);
@@ -539,7 +542,6 @@ function loop() {
   if (state === "COMPLETED") return;
 
   if (state === "SNAP_BOTTLE" && video.readyState === video.HAVE_ENOUGH_DATA) {
-    // Use full resolution for accurate color detection
     if (canvasElement.width !== video.videoWidth) {
       canvasElement.width = video.videoWidth;
       canvasElement.height = video.videoHeight;
@@ -547,13 +549,11 @@ function loop() {
     
     canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
 
-    // Sample 15x15 pixel area at center for better accuracy
     const sampleSize = 15;
     const cX = Math.floor(canvasElement.width / 2 - sampleSize / 2);
     const cY = Math.floor(canvasElement.height / 2 - sampleSize / 2);
     const imgData = canvas.getImageData(cX, cY, sampleSize, sampleSize).data;
     
-    // Calculate average color from sample area
     let r = 0, g = 0, b = 0;
     for (let i = 0; i < imgData.length; i += 4) {
       r += imgData[i];
@@ -573,11 +573,9 @@ function updateColorIndicator(rgb) {
   const brightness = (r + g + b) / 3;
   const colorDiff = Math.max(r, g, b) - Math.min(r, g, b);
 
-  // Clear/white detection
   if (brightness > 185 && colorDiff < 25) {
     currentLV = 0;
   } else {
-    // Yellow-based classification
     currentLV = (g < 110) ? 4 : (g < 170) ? 3 : (g < 205) ? 2 : 1;
   }
 
@@ -589,45 +587,67 @@ function updateColorIndicator(rgb) {
   resBox.style.color = brightness > 150 ? "#000" : "#fff";
 }
 
-// Take Photo
+// Take Photo (Modified to NOT stop camera)
 function takePhoto() {
-  // Capture full resolution image
   const photoData = canvasElement.toDataURL('image/jpeg', 0.85);
   document.getElementById("photoSnapshot").src = photoData;
   
-  // Hide camera, show photo
   document.getElementById("vFrame").style.display = "none";
   document.getElementById("photoWrap").classList.add("show");
   document.getElementById("btnSnap").style.display = "none";
   
-  // Stop camera stream to free resources
-  if (cameraStream) {
-    cameraStream.getTracks().forEach(track => track.stop());
-    cameraStream = null;
-  }
+  // NOTE: กล้องยังคงเปิดอยู่เป็น Background ทำให้สแกนคนต่อไปได้ทันที
   
   state = "COMPLETED";
   updateStepTag("STEP 3: INPUT TEMP", true);
   
-  // Enable temperature input
   document.getElementById("tempArea").classList.add("active");
   document.getElementById("btnSave").style.display = "flex";
   
-  // Auto-focus on temperature input
   setTimeout(() => {
     document.getElementById("bodyTemp").focus();
   }, 300);
 }
 
-// Reset Scanner
+// Reset Scanner to Initial State (Fast Reset)
 function resetScanner() {
+  if (state === "IDLE") return;
+
+  // ซ่อน UI ที่ไม่เกี่ยวข้อง
+  document.getElementById("photoWrap").classList.remove("show");
+  document.getElementById("btnSave").style.display = "none";
+  document.getElementById("btnSnap").style.display = "none";
+  document.getElementById("btnReset").style.display = "none";
+  document.getElementById("bottleGuide").classList.remove("show");
+  
+  // ล้างข้อมูล input และสถานะ
+  document.getElementById('bodyTemp').value = '';
+  document.getElementById('syncStatus').textContent = '';
+  document.getElementById('syncStatus').className = "sync-status";
+  document.getElementById("tempArea").classList.remove("active");
+  document.getElementById('btnSave').disabled = false;
+  
+  currentName = "";
+  currentBuble = "";
+  document.getElementById("displayUserName").textContent = "รอสแกน QR CODE...";
+  document.getElementById("colorResult").innerHTML = "สี: --";
+  document.getElementById("colorResult").style.background = "#222";
+  document.getElementById("colorResult").style.color = "#fff";
+
+  // แสดงกล้องกลับมา
+  document.getElementById("vFrame").style.display = "block";
+  canvasElement.style.display = "none";
+  
+  state = "SCAN_QR";
+  updateStepTag("STEP 1: SCAN QR CODE", true);
+  
+  // เริ่มสแกน QR ใหม่ทันที
   if (cameraStream) {
-    cameraStream.getTracks().forEach(track => track.stop());
+      if (scanInterval) clearInterval(scanInterval);
+      scanInterval = setInterval(scanQRCode, 400);
+  } else {
+      initCamera();
   }
-  if (scanInterval) {
-    clearInterval(scanInterval);
-  }
-  location.reload();
 }
 
 // Save Record with validation
@@ -658,16 +678,13 @@ async function confirmSave() {
     timestamp: now.toISOString()
   };
 
-  // Save to local storage (keep last 20 records)
   historyData.unshift(record);
-  localStorage.setItem('urine_history_v2', JSON.stringify(historyData.slice(0, 20)));
+  localStorage.setItem('urine_history_v2', JSON.stringify(historyData.slice(0, 10)));
   renderHistory();
 
-  // Disable save button
   const btnSave = document.getElementById('btnSave');
   btnSave.disabled = true;
   
-  // Show syncing status
   const syncStatus = document.getElementById('syncStatus');
   const spinner = document.getElementById('syncSpinner');
   
@@ -687,7 +704,8 @@ async function confirmSave() {
     syncStatus.className = "sync-status success";
     syncStatus.textContent = "✅ บันทึกสำเร็จ!";
     
-    setTimeout(() => location.reload(), 1500);
+    // เมื่อซิงค์เสร็จ จะเรียกใช้ resetScanner เพื่อพร้อมตรวจคนต่อไปทันที
+    setTimeout(() => resetScanner(), 1500);
     
   } catch (e) { 
     spinner.style.display = "none";
@@ -706,7 +724,7 @@ function renderHistory() {
     return;
   }
   
-  body.innerHTML = historyData.slice(0, 5).map(r => {
+  body.innerHTML = historyData.slice(0, 10).map(r => {
     const levelInfo = LEVELS[r.level];
     return `
       <tr>
@@ -733,7 +751,6 @@ function updateStepTag(text, active = false) {
 // Show Error Message
 function showError(message) {
   const errorEl = document.getElementById('errorMessage');
-  
   if (message) {
     errorEl.textContent = message;
     errorEl.classList.add('show');
@@ -754,7 +771,6 @@ function startClock() {
       year: 'numeric'
     });
   }
-  
   updateTime();
   setInterval(updateTime, 1000);
 }
