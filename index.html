@@ -402,7 +402,7 @@
     <p class="history-title">📋 RECENT LOGS (TOP 10)</p>
     <table>
       <thead>
-        <tr><th>วันที่</th><th>เวลา</th><th>ชื่อ</th><th>อุณหภูมิ</th><th>ระดับ</th></tr>
+        <tr><th>วันที่</th><th>เวลา</th><th>เลขที่</th><th>ชื่อ</th><th>อุณหภูมิ</th><th>ระดับ</th></tr>
       </thead>
       <tbody id="historyBody">
         <tr><td colspan="4" style="text-align:center; color:var(--muted)">ไม่มีข้อมูล</td></tr>
@@ -413,7 +413,7 @@
 
 <script>
 // ================= CONFIG =================
-const CONFIG_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyZYdeSJA5X5DDTpPwsKAPh3x-vi2hsCV7j3YdJ7tYSAKxIsIblHqzitHg3Huiu3zeu8Q/exec'; 
+const CONFIG_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyfujc5A_qjCti6nH_AILuOJbPW7oIpAhC3zNeOXVpl01Jn0RL5X2T5a8tyXunmTtoj/exec'; 
 
 // ================= DOM =================
 const video = document.getElementById("video");
@@ -510,10 +510,17 @@ function scanQRCode() {
 function handleQRCodeDetected(qrData) {
   try {
     const url = new URL(qrData);
+    console.log("QR RAW:", qrData);
+
+    currentNumber = url.searchParams.get('Number') || "-";
     currentName = url.searchParams.get('name') || "Unknown";
     currentBuble = url.searchParams.get('Buble') || "-";
 
-    document.getElementById("displayUserName").textContent = currentName;
+    console.log("Number =", url.searchParams.get('Number'));
+    console.log("name =", url.searchParams.get('name'));
+    console.log("Buble =", url.searchParams.get('Buble'));
+
+    document.getElementById("displayUserName").innerHTML =`เลขที่: ${currentNumber}<br>ชื่อ: ${currentName}<br>Bubble: ${currentBuble}`;
 
     clearInterval(scanInterval);
 
@@ -605,9 +612,12 @@ async function confirmSave() {
   const now = new Date();
   const record = {
     date: now.toLocaleDateString('th-TH'),
+    Number: currentNumber,
     name: currentName,
+    buble: currentBuble,
     temp,
     level: currentLV,
+    status: LEVELS[currentLV].name,
     time: new Date().toLocaleTimeString('th-TH')
   };
 
@@ -660,6 +670,7 @@ function renderHistory(){
     <tr>
       <td>${r.date}</td>
       <td>${r.time}</td>
+      <td>${r.Number}</td>
       <td>${r.name}</td>
       <td>${r.temp}°</td>
       <td>LV.${r.level}</td>
