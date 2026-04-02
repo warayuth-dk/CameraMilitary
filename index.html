@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>UrineScan Pro — ปตอ.2 พัน.2</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Sans+Thai:wght@300;400;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
@@ -10,303 +12,752 @@
 <style>
   :root {
     --bg: #0a1018; --surface: #161c24; --border: #2d3846;
-    --accent: #00d4ff; --accent2: #00ff9d; --text: #e2eaf4; --muted: #6b7c93; --warn: #ffcc00;
+    --accent: #00d4ff; --accent2: #00ff9d; --text: #e2eaf4; --muted: #6b7c93; 
+    --warn: #ffcc00; --danger: #ff4444; --success: #00ff9d;
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-  body { background: var(--bg); color: var(--text); font-family: 'Noto Sans Thai', sans-serif; padding: 10px; overflow-x: hidden; }
+  
+  * { 
+    box-sizing: border-box; margin: 0; padding: 0; 
+    -webkit-tap-highlight-color: transparent; 
+  }
+  
+  body { 
+    background: var(--bg); color: var(--text); 
+    font-family: 'Noto Sans Thai', sans-serif; 
+    padding: 10px; overflow-x: hidden; min-height: 100vh;
+  }
+  
   .container { max-width: 500px; margin: 0 auto; }
   
-  header { display: flex; justify-content: space-between; align-items: center; padding: 5px 0 15px; }
-  .logo-text { font-family: 'Space Mono', monospace; font-size: 16px; color: var(--accent); font-weight: bold; }
-
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 15px; margin-bottom: 12px; }
+  /* Header */
+  header { 
+    display: flex; justify-content: space-between; align-items: center; 
+    padding: 8px 0 15px; margin-bottom: 5px;
+  }
   
+  .logo-text { 
+    font-family: 'Space Mono', monospace; font-size: 18px; 
+    color: var(--accent); font-weight: bold; letter-spacing: 0.5px;
+  }
+  
+  .header-time { text-align: right; font-family: 'Space Mono'; font-size: 10px; }
+  .current-date { color: var(--accent); font-weight: 600; }
+
+  /* Card */
+  .card { 
+    background: var(--surface); border: 1px solid var(--border); 
+    border-radius: 16px; padding: 16px; margin-bottom: 14px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  }
+  
+  /* Camera Viewfinder - Optimized for Performance */
   .viewfinder { 
     position: relative; width: 100%; aspect-ratio: 1 / 1; 
-    background: #000; border-radius: 12px; overflow: hidden; border: 2px solid var(--border); margin: 0 auto;
+    background: #000; border-radius: 12px; overflow: hidden; 
+    border: 2px solid var(--border); margin: 0 auto;
+    max-width: 450px;
   }
 
-/* ปรับให้ Canvas แสดงผลเฉพาะตอนที่จำเป็นต้องเห็นจุดเล็งหรือวัดสีเท่านั้น */
-canvas { 
-    position: absolute; 
-    top: 0; left: 0; 
+  video {
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%; object-fit: cover;
+    z-index: 1; display: block;
+  }
+
+  /* Canvas - Hidden during QR scan, shown during color detection */
+  canvas { 
+    position: absolute; top: 0; left: 0; 
     width: 100%; height: 100%; 
-    object-fit: cover; 
-    pointer-events: none;
-    z-index: 5;
-    /* ถ้าอยู่ในโหมดสแกน QR ให้ซ่อนไปเลยเพื่อความลื่น */
-    opacity: 1; 
-}
-
-video {
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    object-fit: cover;
-    z-index: 1;
-}
-
-  .photo-preview-wrap { 
-    width: 100%; aspect-ratio: 1 / 1; background: #000; border-radius: 12px; overflow: hidden; display: none; margin-bottom: 10px;
+    object-fit: cover; pointer-events: none;
+    z-index: 5; opacity: 1;
   }
-  .photo-preview-wrap.show { display: block; border: 2px solid var(--accent2); }
+
+  /* Photo Preview */
+  .photo-preview-wrap { 
+    width: 100%; aspect-ratio: 1 / 1; background: #000; 
+    border-radius: 12px; overflow: hidden; display: none; 
+    margin-bottom: 10px; border: 2px solid var(--border);
+  }
+  
+  .photo-preview-wrap.show { 
+    display: block; border-color: var(--accent2);
+    animation: pulseGlow 2s ease-in-out infinite;
+  }
+  
+  @keyframes pulseGlow {
+    0%, 100% { box-shadow: 0 0 10px var(--accent2); }
+    50% { box-shadow: 0 0 20px var(--accent2); }
+  }
+  
   #photoSnapshot { width: 100%; height: 100%; object-fit: cover; }
 
-  /* ปรับ Guide ให้เล็กลงเล็กน้อยเพื่อบังคับให้ผู้ใช้จ่อขวดใกล้ๆ */
+  /* Bottle Guide - Smaller for better accuracy */
   .bottle-guide { 
-    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
-    width: 35%; height: 55%; border: 2px dashed var(--accent2); border-radius: 15px; 
-    pointer-events: none; display: none; z-index: 10; 
+    position: absolute; top: 50%; left: 50%; 
+    transform: translate(-50%, -50%); 
+    width: 38%; height: 58%; 
+    border: 3px dashed var(--accent2); 
+    border-radius: 15px; pointer-events: none; 
+    display: none; z-index: 10;
+    animation: guideAnimation 1.5s ease-in-out infinite;
   }
+  
+  @keyframes guideAnimation {
+    0%, 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
+    50% { opacity: 1; transform: translate(-50%, -50%) scale(1.02); }
+  }
+  
   .bottle-guide.show { display: block; }
   
-  /* เพิ่มจุดเล็งกึ่งกลางสำหรับการวัดสี */
-  .center-aim {
-    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    width: 15px; height: 15px; border: 1px solid white; border-radius: 50%; z-index: 11; display: none;
+  .guide-text {
+    position: absolute; top: -32px; left: 50%;
+    transform: translateX(-50%); background: var(--accent2);
+    color: #000; padding: 5px 12px; border-radius: 6px;
+    font-size: 11px; font-weight: bold; white-space: nowrap;
   }
+
+  /* Center Aim - Color sampling indicator */
+  .center-aim {
+    position: absolute; top: 50%; left: 50%; 
+    transform: translate(-50%, -50%);
+    width: 20px; height: 20px; 
+    border: 2px solid rgba(255, 255, 255, 0.8);
+    border-radius: 50%; z-index: 11; display: none;
+    box-shadow: 0 0 10px rgba(0, 255, 157, 0.6);
+  }
+  
+  .center-aim::before {
+    content: ''; position: absolute;
+    top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 4px; height: 4px; background: white;
+    border-radius: 50%;
+  }
+  
   .bottle-guide.show + .center-aim { display: block; }
 
-  .status-tag { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: bold; margin-bottom: 10px; background: var(--border); color: var(--muted); }
-  .status-tag.active { background: var(--accent); color: #000; }
+  /* Status Tag */
+  .status-tag { 
+    display: inline-block; padding: 6px 12px; 
+    border-radius: 8px; font-size: 11px; font-weight: bold; 
+    margin-bottom: 12px; background: var(--border); color: var(--muted);
+    transition: all 0.3s ease;
+  }
+  
+  .status-tag.active { 
+    background: var(--accent); color: #000;
+    box-shadow: 0 0 15px rgba(0, 212, 255, 0.5);
+  }
 
-  .input-field { width: 100%; background: #000; border: 1px solid var(--border); color: #fff; padding: 15px; border-radius: 10px; font-size: 28px; font-weight: bold; text-align: center; font-family: 'Space Mono'; -webkit-appearance: none; }
-  .btn { width: 100%; padding: 18px; border-radius: 12px; border: none; font-weight: bold; font-size: 16px; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 5px; }
+  /* Input Field */
+  .input-field { 
+    width: 100%; background: #0d1117; 
+    border: 2px solid var(--border); color: #fff; 
+    padding: 16px; border-radius: 10px; 
+    font-size: 28px; font-weight: bold; 
+    text-align: center; font-family: 'Space Mono';
+    -webkit-appearance: none; transition: border-color 0.3s ease;
+  }
+  
+  .input-field:focus {
+    outline: none; border-color: var(--accent);
+    box-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
+  }
+
+  /* Buttons */
+  .btn { 
+    width: 100%; padding: 18px; border-radius: 12px; 
+    border: none; font-weight: bold; cursor: pointer; 
+    font-size: 16px; display: flex; align-items: center; 
+    justify-content: center; gap: 8px; margin-top: 8px;
+    transition: all 0.2s ease; font-family: 'Noto Sans Thai', sans-serif;
+  }
+  
+  .btn:active { transform: scale(0.98); }
   .btn-primary { background: var(--accent); color: #000; }
   .btn-snap { background: var(--warn); color: #000; display: none; }
-  .btn-save { background: var(--accent2); color: #000; display: none; margin-top: 15px; }
+  .btn-save { 
+    background: linear-gradient(135deg, var(--accent2), #00cc7a);
+    color: #000; display: none; margin-top: 15px; font-size: 17px;
+  }
+  .btn-reset { background: #333; color: #fff; display: none; }
+  
+  .btn:disabled {
+    opacity: 0.5; cursor: not-allowed;
+  }
 
-  table { width: 100%; border-collapse: collapse; font-size: 11px; min-width: 450px; }
-  th, td { padding: 12px 8px; text-align: left; border-bottom: 1px solid var(--border); }
-  #instructionOverlay { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 20; }
+  /* Info Display */
+  .info-section {
+    border-left: 4px solid var(--accent); 
+    padding-left: 14px; margin-bottom: 16px;
+  }
+  
+  .info-label {
+    font-size: 10px; color: var(--muted); 
+    text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;
+  }
+  
+  .info-value {
+    font-size: 20px; color: var(--accent); font-weight: 700;
+  }
+
+  /* Color Result */
+  #colorResult {
+    height: 50px; border-radius: 10px; 
+    display: flex; align-items: center; justify-content: center; 
+    background: #222; border: 2px solid var(--border); 
+    font-weight: bold; font-size: 15px;
+    transition: all 0.3s ease;
+    box-shadow: inset 0 2px 8px rgba(0,0,0,0.3);
+  }
+
+  /* Temperature Area */
+  .temp-area {
+    margin-top: 16px; opacity: 0.3; pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+  
+  .temp-area.active { opacity: 1; pointer-events: all; }
+  
+  .temp-label {
+    font-size: 11px; font-weight: bold; 
+    color: var(--accent2); margin-bottom: 6px;
+  }
+
+  /* Sync Status */
+  .sync-status {
+    font-size: 11px; text-align: center; 
+    margin-top: 10px; color: var(--muted); 
+    font-family: 'Space Mono'; min-height: 18px;
+  }
+  
+  .sync-status.success { color: var(--success); }
+  .sync-status.error { color: var(--danger); }
+
+  /* History Table */
+  .history-section { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .history-title {
+    font-size: 12px; font-weight: bold; 
+    color: var(--accent); margin-bottom: 12px;
+    font-family: 'Space Mono';
+  }
+  
+  table { 
+    width: 100%; border-collapse: collapse; 
+    font-size: 12px; min-width: 450px; 
+  }
+  
+  th { 
+    padding: 10px 8px; text-align: left; 
+    border-bottom: 2px solid var(--border);
+    color: var(--accent); font-weight: 600; 
+    font-size: 11px; text-transform: uppercase;
+  }
+  
+  td { 
+    padding: 12px 8px; text-align: left; 
+    border-bottom: 1px solid var(--border); 
+  }
+  
+  tbody tr { transition: background 0.2s ease; }
+  tbody tr:hover { background: rgba(0, 212, 255, 0.05); }
+  
+  .level-badge {
+    padding: 3px 8px; border-radius: 5px; 
+    font-weight: bold; font-size: 11px; display: inline-block;
+  }
+
+  /* Instruction Overlay */
+  #instructionOverlay { 
+    position: absolute; inset: 0; 
+    background: rgba(0,0,0,0.95); 
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; 
+    z-index: 20; padding: 20px;
+  }
+  
+  .overlay-icon {
+    font-size: 48px; margin-bottom: 16px;
+    animation: bounce 1s ease-in-out infinite;
+  }
+  
+  @keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+  
+  .overlay-text {
+    color: var(--accent); font-size: 13px;
+    margin-bottom: 20px; text-align: center; max-width: 250px;
+  }
+
+  /* Loading Spinner */
+  .spinner {
+    border: 3px solid var(--border);
+    border-top: 3px solid var(--accent);
+    border-radius: 50%; width: 24px; height: 24px;
+    animation: spin 1s linear infinite;
+    display: none; margin: 10px auto 0;
+  }
+  
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  /* Error Message */
+  .error-message {
+    background: rgba(255, 68, 68, 0.1);
+    border: 1px solid var(--danger);
+    border-radius: 8px; padding: 12px;
+    margin-top: 10px; color: var(--danger);
+    font-size: 12px; display: none;
+  }
+  
+  .error-message.show { display: block; }
+
+  /* Responsive */
+  @media (max-width: 380px) {
+    .logo-text { font-size: 16px; }
+    .card { padding: 14px; }
+    .input-field { font-size: 24px; padding: 14px; }
+    .btn { padding: 16px; font-size: 15px; }
+  }
 </style>
 </head>
 <body>
 
 <div class="container">
   <header>
-    <div class="logo-text">ปตอ.2 พัน.2</div>
-    <div style="text-align:right; font-family:'Space Mono'; font-size:10px;">
-        <div id="currentDate" style="color:var(--accent)">-- -- ----</div>
-        <div id="clock">00:00:00</div>
+    <div class="logo-text">🔬 ปตอ.2 พัน.2</div>
+    <div class="header-time">
+        <div id="currentDate" class="current-date">-- -- ----</div>
+        <div id="clock" class="clock">00:00:00</div>
     </div>
   </header>
 
+  <!-- Camera Card -->
   <div class="card">
     <div id="stepTag" class="status-tag">STEP 1: SCAN QR CODE</div>
+    
     <div class="viewfinder" id="vFrame">
-      <video id="video" playsinline webkit-playsinline></video>
+      <video id="video" playsinline webkit-playsinline autoplay muted></video>
       <canvas id="canvas"></canvas>
-      <div class="bottle-guide" id="bottleGuide"></div>
+      <div class="bottle-guide" id="bottleGuide">
+        <div class="guide-text">วางขวดในกรอบนี้</div>
+      </div>
       <div class="center-aim"></div>
       <div id="instructionOverlay">
-          <button class="btn btn-primary" onclick="initCamera()">TAP TO START CAMERA</button>
+          <div class="overlay-icon">📱</div>
+          <div class="overlay-text">กดเพื่อเปิดกล้องและสแกน QR Code บนขวด</div>
+          <button class="btn btn-primary" onclick="initCamera()">
+            <span>🎥</span>
+            <span>เปิดกล้อง</span>
+          </button>
       </div>
     </div>
     
-    <div class="photo-preview-wrap" id="photoWrap"><img id="photoSnapshot" src=""></div>
-    <button class="btn btn-snap" id="btnSnap" onclick="takePhoto()">📸 SNAP URINE BOTTLE</button>
-    <button class="btn" id="btnReset" style="display:none; background:#333; color:#fff;" onclick="resetScanner()">CANCEL / RESCAN</button>
+    <div class="photo-preview-wrap" id="photoWrap">
+      <img id="photoSnapshot" src="" alt="Captured Photo">
+    </div>
+
+    <button class="btn btn-snap" id="btnSnap" onclick="takePhoto()">
+      <span>📸</span>
+      <span>ถ่ายภาพขวดปัสสาวะ</span>
+    </button>
+    
+    <button class="btn btn-reset" id="btnReset" onclick="resetScanner()">
+      <span>↺</span>
+      <span>ยกเลิก / สแกนใหม่</span>
+    </button>
+    
+    <div class="error-message" id="errorMessage"></div>
   </div>
 
+  <!-- Data Entry Card -->
   <div class="card">
-    <div style="border-left: 3px solid var(--accent); padding-left: 12px; margin-bottom: 15px;">
-      <p style="font-size:10px; color:var(--muted); text-transform:uppercase;">Soldier Name:</p>
-      <div id="displayUserName" style="font-size:18px; color:var(--accent); font-weight:700;">WAITING FOR SCAN...</div>
+    <div class="info-section">
+      <p class="info-label">ชื่อ-สกุล ทหาร:</p>
+      <div id="displayUserName" class="info-value">รอสแกน QR CODE...</div>
     </div>
-    <div id="colorResult" style="height:45px; border-radius:10px; display:flex; align-items:center; justify-content:center; background:#222; border:1px solid var(--border); font-weight:bold; font-size:14px;">COLOR: --</div>
-    <div id="tempArea" style="margin-top:15px; opacity: 0.3; pointer-events: none;">
-      <p style="font-size:10px; font-weight:bold; color:var(--accent2)">BODY TEMP (°C):</p>
-      <input type="number" id="bodyTemp" class="input-field" placeholder="36.5" step="0.1" inputmode="decimal">
+
+    <div id="colorResult">สี: --</div>
+
+    <div id="tempArea" class="temp-area">
+      <p class="temp-label">📊 อุณหภูมิร่างกาย (°C):</p>
+      <input type="number" id="bodyTemp" class="input-field" 
+             placeholder="36.5" step="0.1" min="35" max="42" inputmode="decimal">
     </div>
-    <button class="btn btn-save" id="btnSave" onclick="confirmSave()">💾 SAVE & SYNC TO CLOUD</button>
-    <div id="syncStatus" style="font-size:10px; text-align:center; margin-top:8px; color:var(--muted); font-family:'Space Mono'"></div>
+
+    <button class="btn btn-save" id="btnSave" onclick="confirmSave()">
+      <span>💾</span>
+      <span>บันทึกและส่งข้อมูล</span>
+    </button>
+    
+    <div class="spinner" id="syncSpinner"></div>
+    <div id="syncStatus" class="sync-status"></div>
   </div>
 
+  <!-- History Card -->
   <div class="card history-section">
-    <p style="font-size:11px; font-weight:bold; color:var(--accent); margin-bottom:10px;">RECENT LOGS (TOP 5)</p>
+    <p class="history-title">📋 RECENT LOGS (TOP 5)</p>
     <table>
-      <thead><tr><th>TIME</th><th>NAME</th><th>TEMP</th><th>LVL</th></tr></thead>
-      <tbody id="historyBody"></tbody>
+      <thead>
+        <tr><th>เวลา</th><th>ชื่อ</th><th>อุณหภูมิ</th><th>ระดับ</th></tr>
+      </thead>
+      <tbody id="historyBody">
+        <tr><td colspan="4" style="text-align:center; color:var(--muted)">ไม่มีข้อมูล</td></tr>
+      </tbody>
     </table>
   </div>
 </div>
 
 <script>
+// Configuration
 const CONFIG_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyZYdeSJA5X5DDTpPwsKAPh3x-vi2hsCV7j3YdJ7tYSAKxIsIblHqzitHg3Huiu3zeu8Q/exec'; 
 
+// DOM Elements
 const video = document.getElementById("video");
 const canvasElement = document.getElementById("canvas");
 const canvas = canvasElement.getContext("2d", { alpha: false, willReadFrequently: true });
 
+// Hydration Levels
 const LEVELS = [
-  { lv: 0, name: "ใส", color: "#ffffff" },
-  { lv: 1, name: "เหลืองจาง", color: "#FEEFC6" },
-  { lv: 2, name: "เหลือง", color: "#FDD771" },
-  { lv: 3, name: "ส้ม/ขาดน้ำ", color: "#FFB300" },
-  { lv: 4, name: "น้ำตาล/อันตราย", color: "#795548" }
+  { lv: 0, name: "ใส", color: "#ffffff", textColor: "#000" },
+  { lv: 1, name: "เหลืองจาง", color: "#FEEFC6", textColor: "#000" },
+  { lv: 2, name: "เหลือง", color: "#FDD771", textColor: "#000" },
+  { lv: 3, name: "ส้ม/ขาดน้ำ", color: "#FFB300", textColor: "#000" },
+  { lv: 4, name: "น้ำตาล/อันตราย", color: "#795548", textColor: "#fff" }
 ];
 
+// State Management
 let state = "IDLE"; 
-let currentName = "", currentLV = 0;
+let currentName = "";
+let currentBuble = "";
+let currentLV = 0;
 let historyData = JSON.parse(localStorage.getItem('urine_history_v2') || '[]');
-let scanInterval;
+let cameraStream = null;
+let scanInterval = null;
 
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+  renderHistory();
+  startClock();
+});
+
+// Camera Initialization - Optimized for iPhone 8
 async function initCamera() {
-    try {
-        const constraints = {
-            video: { 
-                facingMode: "environment", 
-                width: { ideal: 720 }, 
-                height: { ideal: 720 }
-            }
-        };
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        video.srcObject = stream;
-        video.setAttribute("playsinline", true);
-        await video.play();
-        
-        document.getElementById("instructionOverlay").style.display = "none";
-        state = "SCAN_QR";
-        
-        // ซ่อน Canvas ระหว่างสแกน QR เพื่อลดภาระการเรนเดอร์หน้าจอ
-        canvasElement.style.display = "none";
-        
-        // สแกน QR ทุก 400ms (พอดีสำหรับการประมวลผล iPhone 8)
-        scanInterval = setInterval(scanQRCode, 400); 
-        
-        renderHistory();
-        requestAnimationFrame(loop);
-    } catch(e) { alert("Camera Error: " + e.message); }
-}
-
-function scanQRCode() {
-    if (state !== "SCAN_QR" || video.readyState !== video.HAVE_ENOUGH_DATA) return;
-
-    // ใช้ Canvas ขนาดเล็ก (300x300) สำหรับสแกน QR เท่านั้น เพื่อประหยัด CPU
-    const scanSize = 300;
-    canvasElement.width = scanSize;
-    canvasElement.height = scanSize;
+  try {
+    showError('');
     
-    // วาดเฉพาะส่วนกลางของวิดีโอลงใน Canvas เล็ก
-    canvas.drawImage(video, 0, 0, scanSize, scanSize);
-    
-    const imageData = canvas.getImageData(0, 0, scanSize, scanSize);
-    const code = jsQR(imageData.data, imageData.width, imageData.height);
-    
-    if (code) {
-        try {
-            const url = new URL(code.data);
-            currentName = url.searchParams.get('name') || "Unknown";
-            document.getElementById("displayUserName").textContent = currentName;
-            
-            state = "SNAP_BOTTLE";
-            clearInterval(scanInterval); 
-            
-            // สลับกลับมาใช้ขนาดปกติสำหรับวัดสี
-            canvasElement.style.display = "block";
-            
-            document.getElementById("btnSnap").style.display = "flex";
-            document.getElementById("btnReset").style.display = "flex";
-            document.getElementById("bottleGuide").classList.add("show");
-            document.getElementById("stepTag").textContent = "STEP 2: SNAP BOTTLE";
-            document.getElementById("stepTag").classList.add("active");
-        } catch(e) { console.log("QR Data Error"); }
-    }
-}
-
-function loop() {
-    if (state === "COMPLETED") return;
-
-    if (state === "SNAP_BOTTLE" && video.readyState === video.HAVE_ENOUGH_DATA) {
-        // วาดภาพขนาดจริงเพื่อวัดสี
-        if (canvasElement.width !== video.videoWidth) {
-            canvasElement.width = video.videoWidth;
-            canvasElement.height = video.videoHeight;
-        }
-        canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
-
-        const sampleSize = 15;
-        const cX = canvasElement.width / 2 - (sampleSize / 2);
-        const cY = canvasElement.height / 2 - (sampleSize / 2);
-        const imgData = canvas.getImageData(cX, cY, sampleSize, sampleSize).data;
-        
-        let r = 0, g = 0, b = 0;
-        for (let i = 0; i < imgData.length; i += 4) {
-            r += imgData[i]; g += imgData[i+1]; b += imgData[i+2];
-        }
-        const pixels = imgData.length / 4;
-        updateColorIndicator([r/pixels, g/pixels, b/pixels]);
-    }
-    
-    requestAnimationFrame(loop);
-}
-
-function updateColorIndicator(rgb) {
-    const [r, g, b] = rgb;
-    const brightness = (r + g + b) / 3;
-    const colorDiff = Math.max(r, g, b) - Math.min(r, g, b);
-
-    if (brightness > 185 && colorDiff < 25) {
-        currentLV = 0;
-    } else {
-        currentLV = (g < 110) ? 4 : (g < 170) ? 3 : (g < 205) ? 2 : 1;
-    }
-
-    const resBox = document.getElementById("colorResult");
-    resBox.style.background = `rgb(${r},${g},${b})`;
-    resBox.textContent = `LV.${currentLV} - ${LEVELS[currentLV].name}`;
-    resBox.style.color = (brightness > 150) ? "#000" : "#fff";
-}
-
-function takePhoto() {
-    // ใช้ขนาดจริงของ Canvas มาทำเป็นรูปภาพ
-    document.getElementById("photoSnapshot").src = canvasElement.toDataURL('image/jpeg', 0.8);
-    document.getElementById("vFrame").style.display = "none";
-    document.getElementById("photoWrap").classList.add("show");
-    document.getElementById("btnSnap").style.display = "none";
-    state = "COMPLETED";
-    document.getElementById("tempArea").style.opacity = "1";
-    document.getElementById("tempArea").style.pointerEvents = "all";
-    document.getElementById("btnSave").style.display = "flex";
-}
-
-function resetScanner() { location.reload(); }
-
-async function confirmSave() {
-    const tempValue = document.getElementById('bodyTemp').value;
-    if (!tempValue) { alert("กรุณากรอกอุณหภูมิ"); return; }
-    const record = {
-        date: new Date().toLocaleDateString('th-TH'),
-        time: new Date().toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'}),
-        name: currentName, temp: tempValue, level: currentLV, status: LEVELS[currentLV].name
+    const constraints = {
+      video: {
+        facingMode: "environment",
+        width: { ideal: 720 },
+        height: { ideal: 720 },
+        aspectRatio: { ideal: 1 }
+      }
     };
-    historyData.unshift(record);
-    localStorage.setItem('urine_history_v2', JSON.stringify(historyData.slice(0, 5)));
-    document.getElementById('syncStatus').textContent = "> SYNCING...";
-    try {
-        await fetch(CONFIG_SHEET_URL, { method: "POST", mode: "no-cors", body: JSON.stringify(record) });
-        document.getElementById('syncStatus').textContent = "> SUCCESS!";
-        setTimeout(() => location.reload(), 1200);
-    } catch (e) { document.getElementById('syncStatus').textContent = "> SYNC ERROR"; }
+    
+    cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+    video.srcObject = cameraStream;
+    video.setAttribute("playsinline", true);
+    video.setAttribute("webkit-playsinline", true);
+    
+    await video.play();
+    
+    document.getElementById("instructionOverlay").style.display = "none";
+    state = "SCAN_QR";
+    updateStepTag("STEP 1: SCAN QR CODE", true);
+    
+    // Hide canvas during QR scanning for better performance
+    canvasElement.style.display = "none";
+    
+    // Start QR scanning at optimized interval (400ms for iPhone 8)
+    scanInterval = setInterval(scanQRCode, 400);
+    
+    // Start main rendering loop
+    requestAnimationFrame(loop);
+    
+  } catch(e) { 
+    console.error('Camera error:', e);
+    showError("ไม่สามารถเข้าถึงกล้องได้: " + e.message);
+  }
 }
 
+// QR Code Scanner - Optimized with small canvas
+function scanQRCode() {
+  if (state !== "SCAN_QR" || video.readyState !== video.HAVE_ENOUGH_DATA) return;
+
+  // Use small canvas (300x300) for QR scanning to save CPU
+  const scanSize = 300;
+  canvasElement.width = scanSize;
+  canvasElement.height = scanSize;
+  
+  // Draw only center portion of video to small canvas
+  const sx = (video.videoWidth - scanSize) / 2;
+  const sy = (video.videoHeight - scanSize) / 2;
+  canvas.drawImage(video, sx, sy, scanSize, scanSize, 0, 0, scanSize, scanSize);
+  
+  const imageData = canvas.getImageData(0, 0, scanSize, scanSize);
+  const code = jsQR(imageData.data, imageData.width, imageData.height);
+  
+  if (code) {
+    handleQRCodeDetected(code.data);
+  }
+}
+
+// QR Code Handler
+function handleQRCodeDetected(qrData) {
+  try {
+    const url = new URL(qrData);
+    currentName = url.searchParams.get('name') || "Unknown";
+    currentBuble = url.searchParams.get('Buble') || "-";
+    
+    document.getElementById("displayUserName").textContent = currentName;
+    
+    state = "SNAP_BOTTLE";
+    clearInterval(scanInterval);
+    scanInterval = null;
+    
+    // Show canvas for color detection
+    canvasElement.style.display = "block";
+    
+    updateStepTag("STEP 2: SNAP BOTTLE", true);
+    
+    document.getElementById("btnSnap").style.display = "flex";
+    document.getElementById("btnReset").style.display = "flex";
+    document.getElementById("bottleGuide").classList.add("show");
+    
+  } catch(e) {
+    console.error('QR Parse error:', e);
+    showError('QR Code ไม่ถูกต้อง กรุณาลองใหม่');
+  }
+}
+
+// Main Loop - Optimized for color detection
+function loop() {
+  if (state === "COMPLETED") return;
+
+  if (state === "SNAP_BOTTLE" && video.readyState === video.HAVE_ENOUGH_DATA) {
+    // Use full resolution for accurate color detection
+    if (canvasElement.width !== video.videoWidth) {
+      canvasElement.width = video.videoWidth;
+      canvasElement.height = video.videoHeight;
+    }
+    
+    canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
+
+    // Sample 15x15 pixel area at center for better accuracy
+    const sampleSize = 15;
+    const cX = Math.floor(canvasElement.width / 2 - sampleSize / 2);
+    const cY = Math.floor(canvasElement.height / 2 - sampleSize / 2);
+    const imgData = canvas.getImageData(cX, cY, sampleSize, sampleSize).data;
+    
+    // Calculate average color from sample area
+    let r = 0, g = 0, b = 0;
+    for (let i = 0; i < imgData.length; i += 4) {
+      r += imgData[i];
+      g += imgData[i + 1];
+      b += imgData[i + 2];
+    }
+    const pixels = imgData.length / 4;
+    updateColorIndicator([r / pixels, g / pixels, b / pixels]);
+  }
+  
+  requestAnimationFrame(loop);
+}
+
+// Enhanced Color Classification
+function updateColorIndicator(rgb) {
+  const [r, g, b] = rgb;
+  const brightness = (r + g + b) / 3;
+  const colorDiff = Math.max(r, g, b) - Math.min(r, g, b);
+
+  // Clear/white detection
+  if (brightness > 185 && colorDiff < 25) {
+    currentLV = 0;
+  } else {
+    // Yellow-based classification
+    currentLV = (g < 110) ? 4 : (g < 170) ? 3 : (g < 205) ? 2 : 1;
+  }
+
+  const levelInfo = LEVELS[currentLV];
+  const resBox = document.getElementById("colorResult");
+  
+  resBox.style.background = `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
+  resBox.innerHTML = `<strong>LV.${currentLV}</strong> - ${levelInfo.name}`;
+  resBox.style.color = brightness > 150 ? "#000" : "#fff";
+}
+
+// Take Photo
+function takePhoto() {
+  // Capture full resolution image
+  const photoData = canvasElement.toDataURL('image/jpeg', 0.85);
+  document.getElementById("photoSnapshot").src = photoData;
+  
+  // Hide camera, show photo
+  document.getElementById("vFrame").style.display = "none";
+  document.getElementById("photoWrap").classList.add("show");
+  document.getElementById("btnSnap").style.display = "none";
+  
+  // Stop camera stream to free resources
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(track => track.stop());
+    cameraStream = null;
+  }
+  
+  state = "COMPLETED";
+  updateStepTag("STEP 3: INPUT TEMP", true);
+  
+  // Enable temperature input
+  document.getElementById("tempArea").classList.add("active");
+  document.getElementById("btnSave").style.display = "flex";
+  
+  // Auto-focus on temperature input
+  setTimeout(() => {
+    document.getElementById("bodyTemp").focus();
+  }, 300);
+}
+
+// Reset Scanner
+function resetScanner() {
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(track => track.stop());
+  }
+  if (scanInterval) {
+    clearInterval(scanInterval);
+  }
+  location.reload();
+}
+
+// Save Record with validation
+async function confirmSave() {
+  const tempValue = document.getElementById('bodyTemp').value;
+  
+  if (!tempValue) { 
+    showError("⚠️ กรุณากรอกอุณหภูมิร่างกาย");
+    document.getElementById('bodyTemp').focus();
+    return; 
+  }
+  
+  const temp = parseFloat(tempValue);
+  if (temp < 35 || temp > 42) {
+    showError("⚠️ อุณหภูมิไม่อยู่ในช่วงปกติ (35-42°C)");
+    return;
+  }
+
+  const now = new Date();
+  const record = {
+    date: now.toLocaleDateString('th-TH'),
+    time: now.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'}),
+    name: currentName,
+    buble: currentBuble,
+    temp: tempValue,
+    level: currentLV,
+    status: LEVELS[currentLV].name,
+    timestamp: now.toISOString()
+  };
+
+  // Save to local storage (keep last 20 records)
+  historyData.unshift(record);
+  localStorage.setItem('urine_history_v2', JSON.stringify(historyData.slice(0, 20)));
+  renderHistory();
+
+  // Disable save button
+  const btnSave = document.getElementById('btnSave');
+  btnSave.disabled = true;
+  
+  // Show syncing status
+  const syncStatus = document.getElementById('syncStatus');
+  const spinner = document.getElementById('syncSpinner');
+  
+  syncStatus.textContent = "⏳ กำลังส่งข้อมูล...";
+  syncStatus.className = "sync-status";
+  spinner.style.display = "block";
+  
+  try {
+    await fetch(CONFIG_SHEET_URL, { 
+      method: "POST", 
+      mode: "no-cors",
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(record) 
+    });
+    
+    spinner.style.display = "none";
+    syncStatus.className = "sync-status success";
+    syncStatus.textContent = "✅ บันทึกสำเร็จ!";
+    
+    setTimeout(() => location.reload(), 1500);
+    
+  } catch (e) { 
+    spinner.style.display = "none";
+    syncStatus.className = "sync-status error";
+    syncStatus.textContent = "❌ ข้อผิดพลาด: " + e.message;
+    btnSave.disabled = false;
+  }
+}
+
+// Render History Table
 function renderHistory() {
-    const body = document.getElementById("historyBody");
-    body.innerHTML = historyData.slice(0,5).map(r => `
-        <tr>
-            <td>${r.time}</td><td style="font-weight:bold">${r.name}</td>
-            <td style="color:var(--accent2)">${r.temp}°</td>
-            <td><span style="background:${LEVELS[r.level].color}; color:#000; padding:2px 5px; border-radius:4px; font-weight:bold;">LV.${r.level}</span></td>
-        </tr>
-    `).join('');
+  const body = document.getElementById("historyBody");
+  
+  if (historyData.length === 0) {
+    body.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--muted); padding:20px;">ไม่มีข้อมูล</td></tr>';
+    return;
+  }
+  
+  body.innerHTML = historyData.slice(0, 5).map(r => {
+    const levelInfo = LEVELS[r.level];
+    return `
+      <tr>
+        <td style="font-family:'Space Mono'">${r.time}</td>
+        <td style="font-weight:bold">${r.name}</td>
+        <td style="color:var(--accent2); font-family:'Space Mono'">${r.temp}°</td>
+        <td>
+          <span class="level-badge" style="background:${levelInfo.color}; color:${levelInfo.textColor}">
+            LV.${r.level}
+          </span>
+        </td>
+      </tr>
+    `;
+  }).join('');
 }
 
-setInterval(() => {
+// Update Step Tag
+function updateStepTag(text, active = false) {
+  const tag = document.getElementById('stepTag');
+  tag.textContent = text;
+  tag.classList.toggle('active', active);
+}
+
+// Show Error Message
+function showError(message) {
+  const errorEl = document.getElementById('errorMessage');
+  
+  if (message) {
+    errorEl.textContent = message;
+    errorEl.classList.add('show');
+    setTimeout(() => errorEl.classList.remove('show'), 5000);
+  } else {
+    errorEl.classList.remove('show');
+  }
+}
+
+// Clock
+function startClock() {
+  function updateTime() {
     const now = new Date();
     document.getElementById('clock').textContent = now.toLocaleTimeString('th-TH');
-    document.getElementById('currentDate').textContent = now.toLocaleDateString('th-TH', {day:'numeric', month:'short', year:'numeric'});
-}, 1000);
+    document.getElementById('currentDate').textContent = now.toLocaleDateString('th-TH', {
+      day: 'numeric', 
+      month: 'short', 
+      year: 'numeric'
+    });
+  }
+  
+  updateTime();
+  setInterval(updateTime, 1000);
+}
 </script>
 </body>
 </html>
