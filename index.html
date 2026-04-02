@@ -365,7 +365,7 @@
       <span>ถ่ายภาพขวดปัสสาวะ</span>
     </button>
     
-    <button class="btn btn-reset" id="btnReset" onclick="resetScanner()">
+    <button class="btn btn-reset" id="btnReset" onclick="resetApp()">
       <span>↺</span>
       <span>ยกเลิก / สแกนใหม่</span>
     </button>
@@ -647,7 +647,7 @@ function resetApp() {
 
   document.getElementById("photoWrap").classList.remove("show");
   document.getElementById("vFrame").style.display="block";
-
+  document.getElementById("btnSnap").style.display = "none";
   document.getElementById("btnSave").style.display="none";
   document.getElementById("btnReset").style.display="none";
   document.getElementById("tempArea").classList.remove("active");
