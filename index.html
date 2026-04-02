@@ -402,7 +402,7 @@
     <p class="history-title">📋 RECENT LOGS (TOP 10)</p>
     <table>
       <thead>
-        <tr><th>เวลา</th><th>ชื่อ</th><th>อุณหภูมิ</th><th>ระดับ</th></tr>
+        <tr><th>วันที่</th><th>เวลา</th><th>ชื่อ</th><th>อุณหภูมิ</th><th>ระดับ</th></tr>
       </thead>
       <tbody id="historyBody">
         <tr><td colspan="4" style="text-align:center; color:var(--muted)">ไม่มีข้อมูล</td></tr>
@@ -602,8 +602,9 @@ function takePhoto() {
 async function confirmSave() {
   const temp = document.getElementById('bodyTemp').value;
   if(!temp) return showError("กรอกอุณหภูมิ");
-
+  const now = new Date();
   const record = {
+    date: now.toLocaleDateString('th-TH'),
     name: currentName,
     temp,
     level: currentLV,
@@ -657,6 +658,7 @@ function renderHistory(){
   const body=document.getElementById("historyBody");
   body.innerHTML=historyData.map(r=>`
     <tr>
+      <td>${r.date}</td>
       <td>${r.time}</td>
       <td>${r.name}</td>
       <td>${r.temp}°</td>
