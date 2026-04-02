@@ -573,33 +573,54 @@ function loop() {
 // ================= COLOR =================
 function updateColorIndicator([r,g,b]) {
   const brightness = (r+g+b)/3;
-  const colorDiff = Math.max(r,g,b)-Math.min(r,g,b);
 
-  // 👉 normalize สี (แปลงเป็นสัดส่วน)
-  const total = r + g + b;
-  const nr = r / total;
-  const ng = g / total;
-  const nb = b / total;
+  // 👉 หาความใส
+  const colorDiff = Math.max(r,g,b) - Math.min(r,g,b);
 
-  if (brightness > 200 && colorDiff < 20) {
-    currentLV = 0; // ใส
-  } 
-  else if (nr > 0.48 && ng > 0.38) {
-    currentLV = 2; // เหลืองปกติ
-  } 
-  else if (nr > 0.5 && ng < 0.35) {
-    currentLV = 3; // ส้ม (ขาดน้ำเล็กน้อย)
-  } 
-  else if (nr > 0.55 && nb < 0.15) {
-    currentLV = 4; // เข้มมาก
-  } 
-  else {
-    currentLV = 1; // เหลืองจาง
+  // 👉 แปลง RGB -> HSV
+  const r1 = r/255, g1 = g/255, b1 = b/255;
+  const max = Math.max(r1,g1,b1);
+  const min = Math.min(r1,g1,b1);
+  const delta = max - min;
+
+  let h = 0, s = 0, v = max;
+
+  if (delta !== 0) {
+    s = delta / max;
+
+    if (max === r1) {
+      h = 60 * (((g1 - b1) / delta) % 6);
+    } else if (max === g1) {
+      h = 60 * ((b1 - r1) / delta + 2);
+    } else {
+      h = 60 * ((r1 - g1) / delta + 4);
+    }
   }
 
-  const lv = LEVELS[currentLV];
+  if (h < 0) h += 360;
 
+  // ================= LEVEL LOGIC =================
+
+  if (brightness > 200 && colorDiff < 15 && s < 0.1) {
+    currentLV = 0; // ใส
+  }
+  else if (s < 0.18 && brightness > 160) {
+    currentLV = 1; // เหลืองจาง (แบบรูปคุณ)
+  }
+  else if (h >= 40 && h <= 65 && s < 0.45) {
+    currentLV = 2; // เหลือง
+  }
+  else if (h >= 25 && h < 40 && s >= 0.35) {
+    currentLV = 3; // ส้ม
+  }
+  else {
+    currentLV = 4; // เข้ม/น้ำตาล
+  }
+
+  // ================= UI =================
+  const lv = LEVELS[currentLV];
   const box = document.getElementById("colorResult");
+
   box.style.background = `rgb(${r},${g},${b})`;
   box.innerHTML = `LV.${currentLV} - ${lv.name}`;
   box.style.color = brightness>150?"#000":"#fff";
