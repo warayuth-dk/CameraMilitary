@@ -17,6 +17,7 @@ const LEVELS = [
 
 // ================= STATE =================
 let state = "IDLE";
+let currentNumber = "";
 let currentName = "";
 let currentBuble = "";
 let currentLV = 0;
@@ -125,100 +126,110 @@ function handleQRCodeDetected(qrData) {
   }
 }
 
-// ================= LOOP =================
+// ================= ฐานข้อมูลแผ่นเทียบสีมาตรฐาน =================
+// ค่าสีเหล่านี้คือค่า "อุดมคติ" ของแผ่นเทียบสี (ควรจูนให้ตรงกับแผ่นจริงของคุณ)
+const COLOR_CHART_REF = [
+  { lv: 0, r: 255, g: 255, b: 255, name: "ใส" },
+  { lv: 1, r: 254, g: 239, b: 198, name: "เหลืองจาง" },
+  { lv: 2, r: 253, g: 215, b: 113, name: "เหลืองปกติ" }, // เราจะใช้เลเวล 2 เป็นจุดอ้างอิงแสง
+  { lv: 3, r: 255, g: 179, b: 0,   name: "ส้ม" },
+  { lv: 4, r: 121, g: 85,  b: 72,  name: "น้ำตาล" }
+];
+
+// ================= LOOP (อ่านค่า 2 จุด) =================
 function loop() {
   if (state === "COMPLETED") return;
 
   if (state === "SNAP_BOTTLE" && video.readyState === video.HAVE_ENOUGH_DATA) {
     canvasElement.width = video.videoWidth;
     canvasElement.height = video.videoHeight;
-
     canvas.drawImage(video, 0, 0);
 
-    const imgData = canvas.getImageData(
-      canvasElement.width/2 - 7,
-      canvasElement.height/2 - 7,
-      15,
-      15
-    ).data;
+    const centerX = canvasElement.width / 2;
+    const centerY = canvasElement.height / 2;
 
-    let r=0,g=0,b=0;
-    for(let i=0;i<imgData.length;i+=4){
-      r+=imgData[i];
-      g+=imgData[i+1];
-      b+=imgData[i+2];
-    }
+    // --- จุดที่ 1: อ่านสีจากขวดปัสสาวะ (กึ่งกลางจอ) ---
+    const targetRGB = getAvgRGB(centerX, centerY, 15);
+    
+    // --- จุดที่ 2: อ่านสีจากแผ่นเทียบสี (ตำแหน่งที่แผ่นสีเลเวล 2 วางอยู่) ---
+    // ปรับค่า +120 หรือตามตำแหน่งจริงที่คุณติดแผ่นสีไว้ในกล่อง
+    const refRGB = getAvgRGB(centerX + 120, centerY, 15);
 
-    const px = imgData.length/4;
-    updateColorIndicator([r/px,g/px,b/px]);
+    updateColorIndicator(targetRGB, refRGB);
   }
 
   requestAnimationFrame(loop);
 }
 
-// ================= COLOR =================
-function updateColorIndicator([r,g,b]) {
-  const brightness = (r+g+b)/3;
-
-  // 👉 หาความใส
-  const colorDiff = Math.max(r,g,b) - Math.min(r,g,b);
-
-  // 👉 แปลง RGB -> HSV
-  const r1 = r/255, g1 = g/255, b1 = b/255;
-  const max = Math.max(r1,g1,b1);
-  const min = Math.min(r1,g1,b1);
-  const delta = max - min;
-
-  let h = 0, s = 0, v = max;
-
-  if (delta !== 0) {
-    s = delta / max;
-
-    if (max === r1) {
-      h = 60 * (((g1 - b1) / delta) % 6);
-    } else if (max === g1) {
-      h = 60 * ((b1 - r1) / delta + 2);
-    } else {
-      h = 60 * ((r1 - g1) / delta + 4);
-    }
+// ฟังก์ชันช่วยหาค่าสีเฉลี่ยในพื้นที่
+function getAvgRGB(x, y, size) {
+  const imgData = canvas.getImageData(x - size/2, y - size/2, size, size).data;
+  let r=0, g=0, b=0;
+  for(let i=0; i<imgData.length; i+=4){
+    r += imgData[i]; g += imgData[i+1]; b += imgData[i+2];
   }
+  const px = imgData.length/4;
+  return [r/px, g/px, b/px];
+}
 
+// ================= COLOR (ระบบชดเชยแสงและตัดสินเลเวล) =================
+function updateColorIndicator(targetRGB, refRGB) {
+  const [r_raw, g_raw, b_raw] = targetRGB;
+
+  // 1. คำนวณหา Calibration Factor (แสงแดด/เงา เปลี่ยนไปแค่ไหน?)
+  // เทียบสีแผ่นที่กล้องเห็น (refRGB) กับสีมาตรฐาน (COLOR_CHART_REF[2])
+  const rFactor = refRGB[0] / COLOR_CHART_REF[2].r;
+  const gFactor = refRGB[1] / COLOR_CHART_REF[2].g;
+  const bFactor = refRGB[2] / COLOR_CHART_REF[2].b;
+
+  // 2. ชดเชยค่าสีให้ขวดปัสสาวะ (Calibrated RGB)
+  // วิธีนี้จะทำให้สีขวด "สะอาด" เหมือนไม่มีเงาหรือแสงแดดมาปน
+  const r = r_raw / Math.max(rFactor, 0.01);
+  const g = g_raw / Math.max(gFactor, 0.01);
+  const b = b_raw / Math.max(bFactor, 0.01);
+
+  const brightness = (r + g + b) / 3;
+  const colorDiff = Math.max(r, g, b) - Math.min(r, g, b);
+
+  // 3. แปลง RGB -> HSV (ใช้ค่าที่ Calibrate แล้ว)
+  const r1 = r/255, g1 = g/255, b1 = b/255;
+  const max = Math.max(r1, g1, b1), min = Math.min(r1, g1, b1), delta = max - min;
+  let h = 0, s = (max === 0) ? 0 : delta / max;
+  if (delta !== 0) {
+    if (max === r1) h = 60 * (((g1 - b1) / delta) % 6);
+    else if (max === g1) h = 60 * ((b1 - r1) / delta + 2);
+    else h = 60 * ((r1 - g1) / delta + 4);
+  }
   if (h < 0) h += 360;
 
-  // ================= LEVEL LOGIC =================
-
- // --- ส่วนการคำนวณ H, S, L หรือ Hue/Saturation ต้องคำนวณมาก่อนหน้านี้นะครับ ---
-
+  // 4. LEVEL LOGIC (ใช้ logic เดิมของคุณได้เลย แต่จะแม่นยำขึ้นมาก)
   if (brightness > 200 && colorDiff < 15 && s < 0.1) {
-    currentLV = 0; // ใส (ใสเหมือนน้ำเปล่า)
+    currentLV = 0; // ใส
   }
   else if (h >= 10 && h < 38 && s >= 0.40) {
-    currentLV = 4; // เข้ม/น้ำตาล (เช็คค่าวิกฤตก่อน)
+    currentLV = 4; // น้ำตาล
   }
   else if (h >= 25 && h < 40 && s >= 0.35) {
-    currentLV = 3; // ส้ม (ขาดน้ำ)
+    currentLV = 3; // ส้ม
   }
   else if (h >= 38 && h <= 68 && s >= 0.18) { 
-    // จูน LV.2 ให้ครอบคลุมมากขึ้น 
-    // โดยเช็คว่าถ้า Saturation เกิน 0.18 (เริ่มมีสี) แต่ยังอยู่ในโซนสีเหลือง ให้เป็น LV.2
     currentLV = 2; // เหลือง
   }
   else if (s < 0.18 && brightness > 160) {
-    // ถ้าสีจางกว่า 0.18 ลงไป (จืดเกือบขาว) ให้ตกมาอยู่ที่ LV.1
     currentLV = 1; // เหลืองจาง
   }
   else {
-    // กรณีอื่นๆ ที่หลุดรอดมา ให้ Default ไว้ที่ค่าใดค่าหนึ่ง (แนะนำ LV.1 หรือ 2 ตามหน้างาน)
     currentLV = 1; 
   }
 
-  // ================= UI =================
+  // 5. แสดงผล UI
   const lv = LEVELS[currentLV];
   const box = document.getElementById("colorResult");
 
-  box.style.background = `rgb(${r},${g},${b})`;
-  box.innerHTML = `LV.${currentLV} - ${lv.name}`;
-  box.style.color = brightness>150?"#000":"#fff";
+  // แสดงสีจริงที่กล้องเห็น (r_raw) ในกล่อง UI แต่ใช้เลเวลที่ผ่านการคำนวณแล้ว
+  box.style.background = `rgb(${r_raw},${g_raw},${b_raw})`;
+  box.innerHTML = `LV.${currentLV} - ${lv.name} <br> <small>(Calibrated Mode)</small>`;
+  box.style.color = (r_raw + g_raw + b_raw) / 3 > 150 ? "#000" : "#fff";
 }
 
 // ================= SNAP =================
@@ -339,3 +350,4 @@ function startClock(){
       new Date().toLocaleTimeString('th-TH');
   },1000);
 }
+
