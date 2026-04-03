@@ -160,56 +160,78 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
+// Get Average RGB from sample area
 function getAvgRGB(x, y, size) {
-  const data = canvas.getImageData(x - size/2, y - size/2, size, size).data;
-  let r=0, g=0, b=0;
-  for(let i=0; i<data.length; i+=4){ r+=data[i]; g+=data[i+1]; b+=data[i+2]; }
-  const n = data.length/4;
-  return [r/n, g/n, b/n];
+  const halfSize = size / 2;
+  const startX = Math.max(0, Math.floor(x - halfSize));
+  const startY = Math.max(0, Math.floor(y - halfSize));
+  const width = Math.min(size, canvasElement.width - startX);
+  const height = Math.min(size, canvasElement.height - startY);
+  
+  const data = canvas.getImageData(startX, startY, width, height).data;
+  let r = 0, g = 0, b = 0;
+  
+  for (let i = 0; i < data.length; i += 4) {
+    r += data[i];
+    g += data[i + 1];
+    b += data[i + 2];
+  }
+  
+  const pixels = data.length / 4;
+  return [r / pixels, g / pixels, b / pixels];
 }
-
-// ================= COLOR (ระบบวัดสัดส่วนสีเหลือง) =================
+ 
+// Advanced Color Classification using Yellow Index
 function updateColorIndicator(urine, white) {
-  // 1. คำนวณความสว่าง (Brightness)
+  // 1. Calculate brightness using luminance formula
   const urineBr = (0.299 * urine[0] + 0.587 * urine[1] + 0.114 * urine[2]);
   const whiteBr = (0.299 * white[0] + 0.587 * white[1] + 0.114 * white[2]);
-
-  // 2. คำนวณความเหลืองแบบ "Relative" (เทียบกับกระดาษขาว)
-  // ปัสสาวะจะดูดกลืนสีน้ำเงิน (Blue) ดังนั้นค่า B จะหายไปเยอะที่สุดเมื่อเทียบกับกระดาษขาว
-  const yellowIndex = (white[2] / Math.max(white[0], 1)) - (urine[2] / Math.max(urine[0], 1));
+ 
+  // 2. Calculate Yellow Index (relative blue absorption)
+  // Urine absorbs blue light, so blue component decreases relative to red
+  const whiteBlueRatio = white[2] / Math.max(white[0], 1);
+  const urineBlueRatio = urine[2] / Math.max(urine[0], 1);
+  const yellowIndex = whiteBlueRatio - urineBlueRatio;
   
-  // 3. ปรับจูนเลเวล (ค่าพวกนี้จะ "นิ่ง" มากไม่ว่าแสงจะเปลี่ยน)
+  yellowIndexValue = yellowIndex;
+  
+  // 3. Calculate brightness ratio (transparency indicator)
+  const brRatio = urineBr / Math.max(whiteBr, 1);
+ 
+  // 4. Classify hydration level
   let lv = 1;
   
-  // วัดความจาง (Transparency)
-  const brRatio = urineBr / Math.max(whiteBr, 1);
-
-  if (yellowIndex < 0.10 && brRatio > 0.85) {
-    lv = 0; // ใสเหมือนน้ำ (สีน้ำเงินแทบไม่หายไปเลย)
+  // Level 0: Clear or very light (almost like water)
+  if (yellowIndex < 0.12 && brRatio > 0.82) {
+    lv = 0;
   }
-  else if (yellowIndex < 0.25) {
-    lv = 1; // เหลืองจาง
+  // Level 1: Light yellow (close to clear)
+  else if (yellowIndex < 0.28) {
+    lv = 1;
   }
-  else if (yellowIndex < 0.45) {
-    lv = 2; // เหลืองปกติ
+  // Level 2: Yellow-orange (normal)
+  else if (yellowIndex < 0.48) {
+    lv = 2;
   }
-  else if (yellowIndex < 0.65) {
-    lv = 3; // ส้ม (สีน้ำเงินถูกดูดกลืนไปมากกว่า 60%)
+  // Level 3: Dark yellow or light brown (should drink water)
+  else if (yellowIndex < 0.68) {
+    lv = 3;
   }
+  // Level 4: Dark brown (dehydrated)
   else {
-    lv = 4; // น้ำตาล (สีน้ำเงินหายไปเกือบหมด)
+    lv = 4;
   }
-
+ 
   currentLV = lv;
-
-  // 4. UI Update
+ 
+  // 5. Update UI
   const box = document.getElementById("colorResult");
-  const levels_info = LEVELS[lv];
+  const levelInfo = LEVELS[lv];
   
-  box.style.background = `rgb(${urine[0]},${urine[1]},${urine[2]})`;
+  box.style.background = `rgb(${Math.round(urine[0])}, ${Math.round(urine[1])}, ${Math.round(urine[2])})`;
   box.innerHTML = `
-    <div style="font-size:18px">LV.${lv} - ${levels_info.name}</div>
-    <div style="font-size:10px; opacity:0.7">ความเข้มข้นสีเหลือง: ${(yellowIndex * 100).toFixed(0)}%</div>
+    <div style="font-size:18px; font-weight:bold;">LV.${lv} - ${levelInfo.name}</div>
+    <div style="font-size:11px; opacity:0.8; margin-top:4px;">${levelInfo.description} | ความเข้มสีเหลือง: ${(yellowIndex * 100).toFixed(0)}%</div>
   `;
   box.style.color = urineBr > 140 ? "#000" : "#fff";
 }
