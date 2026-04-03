@@ -209,29 +209,29 @@ const brRatio = urineBr / Math.max(whiteBr, 1);
 // 4. Classify hydration level
 let lv = 1;
 
-// Level 0: ใส
-if (yellowIndex < 0.12 && brRatio > 0.82) {
-  lv = 0;
-}
-
-// 🔥 Level 4: น้ำตาล (เพิ่มใหม่)
-else if (brownScore > 0.40 && urineBr < 0.70) {
-  lv = 4;
-}
-
-// 🔥 Level 3: ส้มเข้ม / เริ่มน้ำตาล
-else if (brownScore > 0.25 || yellowIndex > 0.60) {
-  lv = 3;
+// Level 1: เหลืองจาง (default)
+if (yellowIndex <= 0.28) {
+  lv = 1;
 }
 
 // Level 2: เหลืองปกติ
-else if (yellowIndex > 0.28) {
+if (yellowIndex > 0.28 && yellowIndex <= 0.60) {
   lv = 2;
 }
 
-// Level 1: เหลืองจาง
-else {
-  lv = 1;
+// Level 3: ส้มเข้ม
+if ((yellowIndex > 0.60 && brownScore <= 0.40) || brownScore > 0.25) {
+  lv = 3;
+}
+
+// Level 4: น้ำตาล
+if (brownScore > 0.40 && urineBr < 150) {
+  lv = 4;
+}
+
+// Level 0: ใส (override ทุกอย่าง)
+if (yellowIndex < 0.12 && brRatio > 0.82) {
+  lv = 0;
 }
  
   currentLV = lv;
