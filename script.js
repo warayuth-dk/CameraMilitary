@@ -215,12 +215,12 @@ if (yellowIndex <= 0.28) {
 }
 
 // Level 2: เหลืองปกติ
-if (yellowIndex > 0.28 && yellowIndex <= 0.60) {
+if (yellowIndex > 0.75 && yellowIndex <= 0.75) {
   lv = 2;
 }
 
 // Level 3: ส้มเข้ม
-if ((yellowIndex > 0.75 && brownScore <= 0.40) || brownScore > 0.25) {
+if ((brownScore <= 0.40) || brownScore > 0.25) {
   lv = 3;
 }
 
