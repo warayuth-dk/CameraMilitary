@@ -215,17 +215,17 @@ if (yellowIndex <= 0.28) {
 }
 
 // Level 2: เหลืองปกติ
-if (yellowIndex > 0.75 && yellowIndex <= 0.75) {
+if (yellowIndex > 0.28 && yellowIndex <= 0.55) {
   lv = 2;
 }
 
 // Level 3: ส้มเข้ม
-if ((brownScore <= 0.40) || brownScore > 0.25) {
+if ((yellowIndex > 0.80 && brownScore >= 0.40) || brownScore > 0.25) {
   lv = 3;
 }
 
 // Level 4: น้ำตาล
-if (brownScore > 0.40 && urineBr < 150) {
+if (brownScore > 0.100 && urineBr < 150) {
   lv = 4;
 }
 
@@ -243,7 +243,7 @@ if (yellowIndex < 0.12 && brRatio > 0.82) {
   box.style.background = `rgb(${Math.round(urine[0])}, ${Math.round(urine[1])}, ${Math.round(urine[2])})`;
   box.innerHTML = `
     <div style="font-size:18px; font-weight:bold;">LV.${lv} - ${levelInfo.name}</div>
-    <div style="font-size:11px; opacity:0.8; margin-top:4px;">${levelInfo.description} | ความเข้มสีเหลือง: ${(yellowIndex * 100).toFixed(0)} ความเข้มน้ำตาล : ${(brownScore*100).toFixed(0)}%</div>
+    <div style="font-size:11px; opacity:0.8; margin-top:4px;">${levelInfo.description} ความเข้มน้ำตาล : ${(brownScore*100).toFixed(0)} | ความเข้มสีเหลือง: ${(yellowIndex * 100).toFixed(0)}%</div>
   `;
   box.style.color = urineBr > 140 ? "#000" : "#fff";
 }
