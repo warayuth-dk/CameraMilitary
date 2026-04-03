@@ -209,37 +209,28 @@ const brRatio = urineBr / Math.max(whiteBr, 1);
 // 4. Classify hydration level
 let lv = 1;
 
-// Level 1: เหลืองจาง (default)
-if (yellowIndex < 0.28) {
-  lv = 1;
-}
-
-// Level 2: เหลืองปกติ
-if (yellowIndex < 0.70) {
-  lv = 2;
-}
-
-// Level 3: ส้มเข้ม
-if (brownScore < 0.90) {
-  lv = 3;
-}
-
-// Level 4: น้ำตาล
-if (brownScore > 0.90) {
-  lv = 4;
-}
-
-// Level 0: ใส (override ทุกอย่าง)
+// Level 0: ใส (สำคัญ เอาไว้บนสุด)
 if (yellowIndex < 0.12 && brRatio > 0.82) {
   lv = 0;
 }
- 
+else if (brownScore > 0.90) {
+  lv = 4;
+}
+else if (brownScore > 0.25 || yellowIndex > 0.70) {
+  lv = 3;
+}
+else if (yellowIndex > 0.28) {
+  lv = 2;
+}
+else {
+  lv = 1;
+}
   currentLV = lv;
  
   // 5. Update UI
   const box = document.getElementById("colorResult");
   const levelInfo = LEVELS[lv];
-  
+  console.log("บอกสถานะ:",LEVELS);
   box.style.background = `rgb(${Math.round(urine[0])}, ${Math.round(urine[1])}, ${Math.round(urine[2])})`;
   box.innerHTML = `
     <div style="font-size:18px; font-weight:bold;">LV.${lv} - ${levelInfo.name}</div>
