@@ -243,7 +243,7 @@ if (yellowIndex < 0.12 && brRatio > 0.82) {
   box.style.background = `rgb(${Math.round(urine[0])}, ${Math.round(urine[1])}, ${Math.round(urine[2])})`;
   box.innerHTML = `
     <div style="font-size:18px; font-weight:bold;">LV.${lv} - ${levelInfo.name}</div>
-    <div style="font-size:11px; opacity:0.8; margin-top:4px;">${levelInfo.description} | ความเข้มสีเหลือง: ${(yellowIndex * 100).toFixed(0)}%</div>
+    <div style="font-size:11px; opacity:0.8; margin-top:4px;">${levelInfo.description} | ความเข้มสีเหลือง: ${(yellowIndex * 100).toFixed(0)} ความเข้มน้ำตาล : ${(brownScore*100).toFixed(0)}%</div>
   `;
   box.style.color = urineBr > 140 ? "#000" : "#fff";
 }
