@@ -220,7 +220,7 @@ if (yellowIndex > 0.28 && yellowIndex <= 0.60) {
 }
 
 // Level 3: ส้มเข้ม
-if ((yellowIndex > 0.60 && brownScore <= 0.40) || brownScore > 0.25) {
+if ((yellowIndex > 0.75 && brownScore <= 0.40) || brownScore > 0.25) {
   lv = 3;
 }
 
