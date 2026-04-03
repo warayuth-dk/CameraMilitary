@@ -187,40 +187,52 @@ function updateColorIndicator(urine, white) {
   const urineBr = (0.299 * urine[0] + 0.587 * urine[1] + 0.114 * urine[2]);
   const whiteBr = (0.299 * white[0] + 0.587 * white[1] + 0.114 * white[2]);
  
-  // 2. Calculate Yellow Index (relative blue absorption)
-  // Urine absorbs blue light, so blue component decreases relative to red
-  const whiteBlueRatio = white[2] / Math.max(white[0], 1);
-  const urineBlueRatio = urine[2] / Math.max(urine[0], 1);
-  const yellowIndex = whiteBlueRatio - urineBlueRatio;
-  
-  yellowIndexValue = yellowIndex;
-  
-  // 3. Calculate brightness ratio (transparency indicator)
-  const brRatio = urineBr / Math.max(whiteBr, 1);
- 
-  // 4. Classify hydration level
-  let lv = 1;
-  
-  // Level 0: Clear or very light (almost like water)
-  if (yellowIndex < 0.12 && brRatio > 0.82) {
-    lv = 0;
-  }
-  // Level 1: Light yellow (close to clear)
-  else if (yellowIndex < 0.28) {
-    lv = 1;
-  }
-  // Level 2: Yellow-orange (normal)
-  else if (yellowIndex < 0.48) {
-    lv = 2;
-  }
-  // Level 3: Dark yellow or light brown (should drink water)
-  else if (yellowIndex < 0.68) {
-    lv = 3;
-  }
-  // Level 4: Dark brown (dehydrated)
-  else {
-    lv = 4;
-  }
+// 2. Calculate Yellow Index (relative blue absorption)
+const whiteBlueRatio = white[2] / Math.max(white[0], 1);
+const urineBlueRatio = urine[2] / Math.max(urine[0], 1);
+const yellowIndex = whiteBlueRatio - urineBlueRatio;
+
+yellowIndexValue = yellowIndex;
+
+// 🔥 เพิ่ม: normalize สี (กันแสงเพี้ยน)
+const total = urine[0] + urine[1] + urine[2];
+const nr = urine[0] / total;
+const ng = urine[1] / total;
+const nb = urine[2] / total;
+
+// 🔥 เพิ่ม: Brown Score (ตรวจน้ำตาล)
+const brownScore = (nr - ng) + (nr - nb);
+
+// 3. Calculate brightness ratio (transparency indicator)
+const brRatio = urineBr / Math.max(whiteBr, 1);
+
+// 4. Classify hydration level
+let lv = 1;
+
+// Level 0: ใส
+if (yellowIndex < 0.12 && brRatio > 0.82) {
+  lv = 0;
+}
+
+// 🔥 Level 4: น้ำตาล (เพิ่มใหม่)
+else if (brownScore > 0.25 && urineBr < 150) {
+  lv = 4;
+}
+
+// 🔥 Level 3: ส้มเข้ม / เริ่มน้ำตาล
+else if (brownScore > 0.18 || yellowIndex > 0.75) {
+  lv = 3;
+}
+
+// Level 2: เหลืองปกติ
+else if (yellowIndex > 0.28) {
+  lv = 2;
+}
+
+// Level 1: เหลืองจาง
+else {
+  lv = 1;
+}
  
   currentLV = lv;
  
