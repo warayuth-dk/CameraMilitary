@@ -215,12 +215,12 @@ if (yellowIndex < 0.12 && brRatio > 0.82) {
 }
 
 // 🔥 Level 4: น้ำตาล (เพิ่มใหม่)
-else if (brownScore > 0.25 && urineBr < 60) {
+else if (brownScore > 0.40 && urineBr < 0.70) {
   lv = 4;
 }
 
 // 🔥 Level 3: ส้มเข้ม / เริ่มน้ำตาล
-else if (brownScore > 0.18 || yellowIndex > 0.60) {
+else if (brownScore > 0.25 || yellowIndex > 0.60) {
   lv = 3;
 }
 
