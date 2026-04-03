@@ -210,12 +210,12 @@ const brRatio = urineBr / Math.max(whiteBr, 1);
 let lv = 1;
 
 // Level 1: เหลืองจาง (default)
-if (yellowIndex < 0.28 && brRatio > 0.82) {
+if (yellowIndex < 0.28) {
   lv = 1;
 }
 
 // Level 2: เหลืองปกติ
-if (yellowIndex < 0.70 && brRatio > 0.82) {
+if (yellowIndex < 0.70) {
   lv = 2;
 }
 
