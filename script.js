@@ -1,5 +1,5 @@
 // ================= CONFIG =================
-const CONFIG_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyfujc5A_qjCti6nH_AILuOJbPW7oIpAhC3zNeOXVpl01Jn0RL5X2T5a8tyXunmTtoj/exec'; 
+const CONFIG_SHEET_URL = 'https://script.google.com/macros/s/AKfycbw3TCYas6G3V4-ofUNBSxOo-ngdi_O6Et1oBwLYlfYjmxTMW1hZ0LC-mSJ9HfJ711FQHQ/exec'; 
 
 // ================= DOM =================
 const video = document.getElementById("video");
@@ -131,7 +131,7 @@ function handleQRCodeDetected(qrData) {
 const COLOR_CHART_REF = [
   { lv: 0, r: 238, g: 233, b: 233, name: "ใส" },
   { lv: 1, r: 161, g: 154, b: 115, name: "เหลืองจาง" },
-  { lv: 2, r: 255, g: 165, b: 0, name: "เหลืองปกติ" }, // เราจะใช้เลเวล 2 เป็นจุดอ้างอิงแสง
+  { lv: 2, r: 255, g: 165, b: 0, name: "เหลืองปกติ" },
   { lv: 3, r: 141, g: 104, b: 2,   name: "ส้ม" },
   { lv: 4, r: 165, g: 42,  b: 42,  name: "น้ำตาล" }
 ];
@@ -306,7 +306,7 @@ async function confirmSave() {
   
   //const tempNum = parseFloat(temp);
   
-  if(temp < 32 || temp > 42){
+  if(temp < 35 || temp > 42){
     return showError("อุณหภูมิผิดปกติ! (ต้องอยู่ระหว่าง 35.0 - 42.0)");
     
   }
